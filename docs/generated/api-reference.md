@@ -13,7 +13,7 @@ hand-edit; run `make generate-api-reference` (or `make generate-reference-docs`)
 - Source is the annotations, **not** `openapi.yml` (a config stub with no endpoints; the
   full spec is assembled at runtime by Dropwizard).
 
-**1760 endpoints** across 74 resource packages · 1750 carry a summary.
+**1767 endpoints** across 74 resource packages · 1757 carry a summary.
 
 ## (root)
 
@@ -39,6 +39,8 @@ hand-edit; run `make generate-api-reference` (or `make generate-reference-docs`)
 | `GET` | `/v1/activity/user/{userId}` | Get activity by a specific user |
 | `DELETE` | `/v1/activity/{id}/reaction/{reactionType}` | Remove a reaction from an activity event |
 | `PUT` | `/v1/activity/{id}/reaction/{reactionType}` | Add a reaction to an activity event |
+| `GET` | `/v1/activity/{id}/replies` | List replies to an activity |
+| `POST` | `/v1/activity/{id}/replies` | Reply to an activity |
 
 ## ai
 
@@ -287,6 +289,7 @@ hand-edit; run `make generate-api-reference` (or `make generate-reference-docs`)
 |---|---|---|
 | `GET` | `/v1/audit/logs` | List audit log events |
 | `GET` | `/v1/audit/logs/export` | Export audit log events as JSON (async) |
+| `GET` | `/v1/audit/logs/export/{jobId}` | Get the status of an audit log export job |
 | `GET` | `/v1/audit/logs/export/{jobId}/result` | Download a completed audit log export |
 
 ## automations
@@ -1004,19 +1007,19 @@ hand-edit; run `make generate-api-reference` (or `make generate-reference-docs`)
 | `PATCH` | `/v1/announcements/{id}` | Update an announcement |
 | `GET` | `/v1/announcements/{id}/versions` | List announcement versions |
 | `GET` | `/v1/announcements/{id}/versions/{version}` | Get a specific version of an announcement |
-| `GET` | `/v1/feed` | List threads |
-| `POST` | `/v1/feed` | Create a thread |
-| `GET` | `/v1/feed/count` | Count of threads |
-| `GET` | `/v1/feed/tasks/{id}` | Get a task thread by task Id |
-| `PUT` | `/v1/feed/tasks/{id}/close` | Close a task |
-| `PUT` | `/v1/feed/tasks/{id}/resolve` | Resolve a task |
-| `GET` | `/v1/feed/{id}` | Get a thread by Id |
-| `PATCH` | `/v1/feed/{id}` | Update a thread by `Id`. |
-| `GET` | `/v1/feed/{id}/posts` | Get all the posts of a thread |
-| `POST` | `/v1/feed/{id}/posts` | Add post to a thread |
-| `DELETE` | `/v1/feed/{threadId}` | Delete a thread by Id |
-| `DELETE` | `/v1/feed/{threadId}/posts/{postId}` | Delete a post from its thread |
-| `PATCH` | `/v1/feed/{threadId}/posts/{postId}` | Update post of a thread by `Id`. |
+| `GET` | `/v1/conversations` | List conversations |
+| `POST` | `/v1/conversations` | Create a conversation |
+| `DELETE` | `/v1/conversations/{id}` | Delete a conversation |
+| `GET` | `/v1/conversations/{id}` | Get a conversation |
+| `PATCH` | `/v1/conversations/{id}` | Update a conversation |
+| `DELETE` | `/v1/conversations/{id}/reaction/{reactionType}` | Remove a reaction |
+| `PUT` | `/v1/conversations/{id}/reaction/{reactionType}` | React to a conversation |
+| `GET` | `/v1/conversations/{id}/replies` | List conversation replies |
+| `POST` | `/v1/conversations/{id}/replies` | Reply to a conversation |
+| `DELETE` | `/v1/conversations/{id}/replies/{replyId}` | Delete a reply |
+| `PATCH` | `/v1/conversations/{id}/replies/{replyId}` | Update a reply |
+| `DELETE` | `/v1/conversations/{id}/replies/{replyId}/reaction/{reactionType}` | Remove reply reaction |
+| `PUT` | `/v1/conversations/{id}/replies/{replyId}/reaction/{reactionType}` | React to a reply |
 | `GET` | `/v1/taskFormSchemas` | List task form schemas |
 | `POST` | `/v1/taskFormSchemas` | Create a task form schema |
 | `PUT` | `/v1/taskFormSchemas` | Create or update a task form schema |
@@ -1896,6 +1899,10 @@ hand-edit; run `make generate-api-reference` (or `make generate-reference-docs`)
 | `PATCH` | `/v1/classifications/name/{fqn}` | Update a classification using name. |
 | `DELETE` | `/v1/classifications/name/{name}` | Delete classification by name |
 | `GET` | `/v1/classifications/name/{name}` | Get a classification by name |
+| `GET` | `/v1/classifications/name/{name}/export` | Export classification in CSV format |
+| `GET` | `/v1/classifications/name/{name}/exportAsync` | Export classification in CSV format |
+| `PUT` | `/v1/classifications/name/{name}/import` | Import tags from CSV to create, and update tags of a classification |
+| `PUT` | `/v1/classifications/name/{name}/importAsync` | Import tags of a classification in CSV format asynchronously |
 | `PUT` | `/v1/classifications/restore` | Restore a soft deleted classification |
 | `DELETE` | `/v1/classifications/{id}` | Delete classification by id |
 | `GET` | `/v1/classifications/{id}` | Get a classification by id |

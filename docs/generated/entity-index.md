@@ -14,7 +14,7 @@ hand-edit; run `make generate-entity-index` (or `make generate-reference-docs`).
 - **REST resource** is joined from `extends EntityResource<Entity, …>`; `—` means no dedicated
   `EntityResource` was found (the entity may be exposed via a shared or non-`EntityResource` route).
 
-**81 entities** · 58 with a dedicated `EntityResource`.
+**83 entities** · 58 with a dedicated `EntityResource`.
 
 ## entity/(root)
 
@@ -137,6 +137,8 @@ hand-edit; run `make generate-entity-index` (or `make generate-reference-docs`).
 | Entity | Schema | Java | Python | TypeScript | REST resource |
 |---|---|---|---|---|---|
 | Announcement | `openmetadata-spec/src/main/resources/json/schema/entity/feed/announcement.json` | `org.openmetadata.schema.entity.feed.Announcement` | `metadata.generated.schema.entity.feed.announcement` | `openmetadata-ui/src/main/resources/ui/src/generated/entity/feed/announcement.ts` | `org.openmetadata.service.resources.feeds.AnnouncementResource` |
+| Conversation | `openmetadata-spec/src/main/resources/json/schema/entity/feed/conversation.json` | `org.openmetadata.schema.entity.feed.Conversation` | `metadata.generated.schema.entity.feed.conversation` | `openmetadata-ui/src/main/resources/ui/src/generated/entity/feed/conversation.ts` | — |
+| ConversationReply | `openmetadata-spec/src/main/resources/json/schema/entity/feed/conversationReply.json` | `org.openmetadata.schema.entity.feed.ConversationReply` | `metadata.generated.schema.entity.feed.conversationReply` | `openmetadata-ui/src/main/resources/ui/src/generated/entity/feed/conversationReply.ts` | — |
 | TaskFormSchema | `openmetadata-spec/src/main/resources/json/schema/entity/feed/taskFormSchema.json` | `org.openmetadata.schema.entity.feed.TaskFormSchema` | `metadata.generated.schema.entity.feed.taskFormSchema` | `openmetadata-ui/src/main/resources/ui/src/generated/entity/feed/taskFormSchema.ts` | `org.openmetadata.service.resources.feeds.TaskFormSchemaResource` |
 
 ## entity/learning

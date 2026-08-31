@@ -61,6 +61,7 @@ verdict cites an artifact that was checked to still exist):
 | `docs/golden-principles.md` | 8 candidate repo-wide invariants (DRAFT for ratification), each with a measured adherence number + reproducing command | Cite/enforce an invariant (acyclic modules, ServiceSpec contract, generated-as-sink, no bare `except:`, …) | 2026-07-24 | CURRENT |
 | `docs/tech-debt.md` | Prioritized (impact÷size, 3 tiers) ledger of 21 audit findings, each with location, size, and agent-fixability | Pick up a bounded cleanup, or understand a known structural debt before working near it | 2026-07-24 | CURRENT |
 | `docs/quality.md` | One evidence-cited quality grade (A–C / Not assessed) per Maven module | Gauge a module's structural health / known debt before a large change | 2026-07-24 | CURRENT |
+| `docs/odi-connector-readiness-analysis.md` | ODI connector readiness audit: repository baseline, ingestion architecture, reusable assets, skill/harness findings, Codex/Serena setup, and researched SDK/MCP/tooling options for mappings, Load Plans, execution status, and lineage | Resuming Oracle Data Integrator connector planning, reproducing the WSL/Codex environment, or selecting the ODI metadata-access architecture | 2026-08-29 | CURRENT — target ODI version and access method remain product decisions |
 
 ## Assets (`docs/assets/`)
 
@@ -95,5 +96,3 @@ verdict cites an artifact that was checked to still exist):
 6. **ui/specs** — tracked (41 files) and CURRENT: all four audit commands its `README.md` cites resolve to real `package.json` scripts (`tw-audit`, `tw-audit:report`, `tw-guard`, `token-audit`), and the two-stack policy it states (go-forward UntitledUI+Tailwind, legacy Antd+Less deprecated) matches the enforced rules — `tw-guard` blocks new `antd` imports / new `.less` files, and `.claude/rules/frontend-styling.md` routes agents into `specs/README.md`.
 
 ---
-
-*Not indexed:* `docs/harness-audit/` exists in the working tree but is **untracked** (working audit notes, intentionally out of version control), so it is not part of the committed knowledge base.
