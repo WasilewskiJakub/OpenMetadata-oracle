@@ -25,7 +25,7 @@
     "source=${localWorkspaceFolderBasename}-python-venv,target=${containerWorkspaceFolder}/.venv-devcontainer,type=volume",
     "source=${localWorkspaceFolderBasename}-ingestion-egg-info,target=${containerWorkspaceFolder}/ingestion/src/openmetadata_ingestion.egg-info,type=volume"
   ],
-  "postCreateCommand": "sudo chown vscode:vscode node_modules openmetadata-ui/src/main/resources/ui/node_modules openmetadata-ui-core-components/src/main/resources/ui/node_modules .venv-devcontainer ingestion/src/openmetadata_ingestion.egg-info && npm install -g yarn@1.22.22 --force && bash .devcontainer/dev/post-create.sh",
+  "postCreateCommand": "npm install -g yarn@1.22.22 --force && bash .devcontainer/dev/post-create.sh",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -45,7 +45,7 @@
   "remoteEnv": {
     "PATH": "${containerEnv:PATH}:${containerEnv:HOME}/.local/bin"
   },
-  "remoteUser": "vscode",
+  "remoteUser": "root",
   "forwardPorts": [3000],
   "portsAttributes": {
     "3000": { "label": "Frontend Dev Server" }
