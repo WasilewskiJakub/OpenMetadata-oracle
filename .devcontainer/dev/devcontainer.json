@@ -43,7 +43,7 @@
     }
   },
   "remoteEnv": {
-    "PATH": "${containerEnv:PATH}:${containerEnv:HOME}/.local/bin"
+    "PATH": "${containerEnv:PATH}:/root/.local/bin"
   },
   "remoteUser": "root",
   "forwardPorts": [3000],
