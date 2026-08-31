@@ -21,12 +21,14 @@ state.
    - Read only relevant sections of ARCHITECTURE.md and DEVELOPER.md.
    - Inspect git status and a diff summary without attributing pre-existing changes to this session.
 
-3. Check dependencies once per session:
+3. Check dependencies once per session. When an active repository DevContainer exists, run its
+   prerequisite check and verify `.venv-devcontainer`, generated models, and UI dependencies through
+   `devcontainer exec`. Otherwise run:
 
        make dev_check
 
-   This target is diagnostic and read-only. Do not run setup, generation, full builds, test suites,
-   Docker startup, git fetch, or dependency installation.
+   These checks are diagnostic and read-only. Do not run setup, generation, full builds, test
+   suites, Docker startup, git fetch, or dependency installation.
 
 4. Check task-relevant skill entrypoints and symlink targets directly. When the skill validator is
    available, validate only those skills. Do not run make harness-check or

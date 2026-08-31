@@ -32,6 +32,8 @@ and Docker infrastructure.
   source env/bin/activate          # first time: python3.11 -m venv env
   python --version                 # expect 3.10.x/3.11.x
   ```
+  Inside the repository DevContainer, activate `.venv-devcontainer/bin/activate` instead; `env/`
+  remains the required host-side venv.
   In a Claude Code **worktree** the venv is NOT copied — create one
   (`python3.11 -m venv env && source env/bin/activate && cd ingestion && make install_dev`) or
   symlink the main repo's (`ln -s /path/to/main-repo/env env`).
