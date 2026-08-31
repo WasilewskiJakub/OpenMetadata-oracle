@@ -139,8 +139,8 @@ When running the full audit, dispatch P1-P5 using Agent subagents for parallelis
 ## Standards Reference
 
 All prompts reference connector standards loaded via `/connector-standards`. The standards live at:
-- `skills/connector-review/standards/` — shared standards (main.md, patterns.md, etc.)
-- `skills/connector-review/standards/source_types/` — per-service-type standards
+- `skills/standards/` — shared standards (main.md, patterns.md, etc.)
+- `skills/standards/source_types/` — per-service-type standards
 
 The static analyzer at `skills/connector-review/scripts/analyze_connector.py` provides mechanical checks that complement the deeper investigation in each prompt.
 

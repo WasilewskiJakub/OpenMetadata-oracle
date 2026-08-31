@@ -6,11 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat \"${CLAUDE_PLUGIN_ROOT}/openmetadata-workflow/SKILL.md\"",
+            "command": "cat \"${CLAUDE_PLUGIN_ROOT}/openmetadata-workflow/SKILL.md\" \"${CLAUDE_PLUGIN_ROOT}/openmetadata-session/SKILL.md\"",
             "timeout": 5
           }
         ],
-        "description": "Load OpenMetadata workflow skill at session start"
+        "description": "Load OpenMetadata workflow and session bootstrap at session start"
       }
     ],
     "PreToolUse": [

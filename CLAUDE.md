@@ -54,6 +54,13 @@ and Docker infrastructure.
   `openmetadata-ui/src/main/resources/ui/`.
 - **Docker dev services**: `docker compose -f docker/development/docker-compose.yml up -d`.
 
+## Session continuity
+
+- Before the first substantive task in each session, invoke `openmetadata-session` in Start mode.
+  It loads the active handoff and runs autonomous read-only repository, dependency, skill, and MCP checks.
+- When the user explicitly pauses or ends work, invoke it in Finish mode before the final response.
+- Do not run Finish after ordinary turns; a closed or interrupted client cannot guarantee an end hook.
+
 ## Repository layout
 
 Maven modules (reactor order is computed from the graph, not this list):
@@ -149,6 +156,7 @@ on functionality over education. Do not add unnecessary blank lines between pros
 
 | Skill | Reach for it when… |
 |---|---|
+| `openmetadata-session` | starting/resuming a session or saving an explicit end-of-session handoff |
 | `dev-setup` | setting up / repairing a dev environment, a fresh clone, or a new worktree |
 | `planning` | starting any non-trivial, multi-file feature or refactor |
 | `tdd` | implementing a feature or bug fix (RED→GREEN→REFACTOR) |

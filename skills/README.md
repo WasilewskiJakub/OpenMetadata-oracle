@@ -56,6 +56,8 @@ The `openmetadata-workflow` meta-skill is loaded at session start and directs Cl
 | Skill | Command | Purpose |
 |-------|---------|---------|
 | [OpenMetadata Workflow](openmetadata-workflow/SKILL.md) | *(auto-loaded)* | Meta-skill: routes tasks to the right workflow |
+| [OpenMetadata Session](openmetadata-session/SKILL.md) | `/openmetadata-session start|finish` | Loads session context and maintains minimal handoffs |
+| [I Have ADHD](i-have-adhd/SKILL.md) | `/i-have-adhd` | Keeps responses action-first and easy to execute |
 | [Planning](planning/SKILL.md) | `/planning` | Brainstorm approaches, get approval, create step-by-step plan |
 | [TDD](tdd/SKILL.md) | `/tdd` | RED-GREEN-REFACTOR for Java, Python, and TypeScript |
 | [Test Enforcement](test-enforcement/SKILL.md) | `/test-enforcement` | Enforce 90% line coverage, integration tests, Playwright E2E |
@@ -97,7 +99,7 @@ The plugin includes hooks (`hooks/hooks.json`) that fire automatically:
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| OpenMetadata Workflow | SessionStart | Loads the meta-skill to route tasks to the right workflow |
+| OpenMetadata Workflow + Session | SessionStart | Loads task routing and the session bootstrap instructions |
 | Block `--no-verify` | PreToolUse | Prevents skipping pre-commit hooks |
 | Java format reminder | PostToolUse | Reminds to run `mvn spotless:apply` after `.java` edits |
 | Schema regeneration | PostToolUse | Reminds to run `make generate` after JSON schema edits |

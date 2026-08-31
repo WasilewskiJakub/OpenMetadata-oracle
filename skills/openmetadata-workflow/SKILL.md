@@ -7,6 +7,9 @@ description: Meta-skill loaded at session start. Directs Claude to check for app
 
 This skill is loaded automatically at session start. It ensures you follow the right workflow for every task.
 
+Invoke `openmetadata-session` in Start mode once before substantive work. When the user explicitly
+pauses or ends the session, invoke it in Finish mode before the final response.
+
 ## Before Starting Any Task
 
 **Check which skills apply to your task and use them.** This is not optional — if a skill applies, you must follow it.

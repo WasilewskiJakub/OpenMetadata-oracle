@@ -1,0 +1,27 @@
+# Repository-scoped Codex model settings.
+# GPT-5.6 Sol advertises a 1,000,000-token maximum context window.
+
+model = "gpt-5.6-sol"
+model_context_window = 1000000
+model_auto_compact_token_limit = 750000
+model_auto_compact_token_limit_scope = "total"
+mcp_optional_startup_grace_ms = 30000
+
+# Serena is installed globally in WSL but enabled only for this repository.
+[mcp_servers.serena]
+command = "/root/.local/bin/serena"
+args = [
+  "start-mcp-server",
+  "--context",
+  "codex",
+  "--project-from-cwd",
+  "--enable-web-dashboard",
+  "true",
+  "--open-web-dashboard",
+  "true",
+]
+startup_timeout_sec = 120
+tool_timeout_sec = 240
+enabled = true
+required = true
+default_tools_approval_mode = "writes"

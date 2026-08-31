@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenMetadata Session"
+  short_description: "Load context and preserve session handoffs"
+  default_prompt: "Use $openmetadata-session start to load the current OpenMetadata context and run a session health check."

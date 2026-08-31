@@ -1,0 +1,3 @@
+interface:
+  display_name: "Codex Connector Building"
+  short_description: "Build schema-first ingestion connectors"
