@@ -10,6 +10,18 @@ decisions are complete enough to start preparing a test environment.
 The broader repository audit is in docs/odi-connector-readiness-analysis.md. This file contains the latest
 working decisions from the follow-up discussion.
 
+## Development workspace
+
+- Canonical checkout: `/root/workspaces/openmetadata-oracle` on native WSL ext4, owned by `root`.
+- Active branch: `codex/workspace-bootstrap`, tracking the same branch on `origin`.
+- The previous `/home/jakub/workspaces/openmetadata-oracle` checkout remains an untouched backup.
+- `.agents`, `.claude`, `.codex`, durable `.serena` state, `skills`, and `docs/codex-work` are tracked.
+- Serena 1.7.0 passed symbol overview, lookup, and reference health checks with Python, TypeScript,
+  and Java enabled; its global registry contains only the canonical root checkout.
+- The root DevContainer completed UI build, ingestion install, model generation, and all prerequisite
+  checks with Java 21, Maven 3.9.9, Node 22, Yarn 1.22, Python 3.11, and ANTLR 4.9.2.
+- `apply_patch` passed create, update, and delete against the root-owned checkout.
+
 ## Connector scope selected
 
 - Target ODI release: 14c, version 14.1.2.0.0.

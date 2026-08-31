@@ -381,33 +381,22 @@ The repository-scoped configuration now selects `gpt-5.6-sol`, declares the `100
 
 ## Docker/environment state
 
+- Canonical checkout: `/root/workspaces/openmetadata-oracle` on native WSL ext4, owned by `root`.
+- Ubuntu's registered WSL `DefaultUid` is 0, matching the Codex process and checkout owner.
 - Docker Desktop's WSL integration is operational.
-- Docker Engine 28.3.2 and Compose 2.38.2 responded successfully.
-- The daemon reported 32 CPUs and about 31.25 GiB RAM.
-- No OpenMetadata containers were running at the time of inspection.
-- The expected local `env/` directory was absent.
-- Program startup was deliberately paused before changing the checkout or starting services.
+- The DevContainer runs as `root` against the root-owned bind mount and completed its full
+  post-create workflow.
+- Verified container toolchain: Java 21.0.12.1, Maven 3.9.9, Node 22.17.0, Yarn 1.22.22,
+  Python 3.11.16, and ANTLR 4.9.2.
+- Named volumes preserve root/UI node_modules, the DevContainer venv, and ingestion egg-info.
 
 ## Working tree at hand-off
 
-Expected uncommitted changes after this analysis are:
+The clean `codex/workspace-bootstrap` branch tracks `origin/codex/workspace-bootstrap`. Durable agent
+configuration is committed under `.agents`, `.claude`, `.codex`, `.serena`, and `skills`; only Serena
+cache and health-check logs remain ignored. The previous `/home/jakub` checkout is retained as backup.
 
-- `.codex/config.toml`: repository-scoped large-context and Serena MCP configuration;
-- `docs/odi-connector-readiness-analysis.md`: this persisted analysis;
-- `docs/index.md`: registers this analysis in the repository knowledge index;
-- `docs/generated/api-reference.md`: refreshed generated API inventory for the synchronized upstream baseline;
-- `docs/generated/entity-index.md`: refreshed generated entity inventory for the synchronized upstream baseline.
+## Recommended next step
 
-The ignored `.serena/` directory also exists locally and contains the Serena project configuration, caches, memories, logs, and successful health-check output. It is intentionally absent from Git status.
-
-The generated files contain derived changes already present in the synchronized source tree, including conversation entities and newly discovered endpoints. They were not hand-edited.
-
-## Recommended next sequence
-
-1. Start a fresh Codex session from the repository root so the corrected large-context configuration and project-scoped Serena MCP are loaded; verify with `/mcp`.
-2. Repair local symlink materialization and line endings as a bounded workspace setup operation.
-3. Make the repository's connector/workflow skills natively discoverable by Codex and fix confirmed broken internal references.
-4. Capture the target ODI versions and decide between ODI API/SDK and read-only repository access.
-5. Produce a connector profile and implementation plan from the existing scaffold and pipeline standards.
-6. Implement schema-first with tests, then register UI/docs/package integration points.
-7. Validate metadata, statuses, and lineage independently before end-to-end Docker testing.
+Start a new Codex session from `/root/workspaces/openmetadata-oracle`, invoke `openmetadata-session`
+in Start mode, then continue with the ODI certification-matrix decision recorded in the handoff.
