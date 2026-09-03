@@ -24,7 +24,8 @@ dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
 .claude/*
-.claude
+!.claude/skills/
+!.claude/skills/**
 .maestro
 catalog-services/catalog-services.iml
 
@@ -158,12 +159,24 @@ ingestion/.nox/
 *.tmp
 *.temp 
 
+# Machine-local ODI Lineage Explorer network and credential files
+/tools/odi-lineage-explorer/.local/
+
+# Licensed Oracle media and local VirtualBox checkpoints
+INITIAL_REPO*.zip
+LINUX.X64_193000_db_home.zip
+V1045400-01.zip
+jdk-*_linux-x64_bin.tar.gz
+*.ova
+*.ovf
+*.vdi
+*.vmdk
+
 # BMAD Method
 .bmad-core/
 _bmad/
 
 # Claude Flow generated files
-.claude/*
 .mcp.json
 claude-flow.config.json
 .swarm/
