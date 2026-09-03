@@ -9,6 +9,10 @@ project documentation.
    a scoped diff/stat, and commands actually run. Recheck status before editing so concurrent or
    pre-existing changes are not attributed to this session.
 
+   For work performed in an external lab, VM, or service, distinguish command-verified state,
+   user-reported state, and inference. Preserve canonical versions, paths, checksums, and service states
+   only when they materially affect resumption; never promote a user report to independently verified.
+
 2. Choose the handoff:
 
    - Prefer the topic file loaded in Start.
@@ -28,6 +32,10 @@ project documentation.
 
    Do not duplicate facts, add a generic daily diary, copy the full diff, reformat unrelated sections,
    or move stable architecture into working notes. Never record secrets or licensed artifacts.
+
+   If the user separately requests a reusable runbook or stable project document, complete that normal
+   documentation task before Finish. Finish itself still edits only the handoff and links to the stable
+   document instead of duplicating its procedure.
 
 4. Review the documentation diff and run:
 
