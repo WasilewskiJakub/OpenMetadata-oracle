@@ -1,17 +1,19 @@
 # Vendored third-party skills
 
-Skills copied verbatim from external repositories, kept in-tree so every contributor and CI run has
-them with no install or network step.
+Skills from external sources, kept in-tree so every contributor and CI run has them with no install
+or network step. Provenance files record pinned versions and any compatibility changes.
 
 | Skill | Upstream | Licence |
 |---|---|---|
 | `react-best-practices` | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | MIT |
 | `web-design-guidelines` | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | MIT |
 | `composition-patterns` | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | MIT |
+| UI/UX Pro Max bundle (7 skills) | [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | MIT; nested license files retained |
 
-Each directory carries a `VENDORED.md` recording the exact upstream commit, the vendor date, and the
-licence. MIT permits redistribution inside this Apache-2.0 repository provided the attribution above
-is retained.
+Each Vercel directory carries a `VENDORED.md` recording the exact upstream commit, vendor date, and
+license. UI/UX Pro Max records CLI version 2.15.0, all seven skill names, and compatibility changes in
+[`uipro/UPSTREAM.md`](uipro/UPSTREAM.md), with file checksums in `uipro/MANIFEST.sha256`.
+Preserve upstream attribution and all included license files when updating either bundle.
 
 ## Do not edit these files
 

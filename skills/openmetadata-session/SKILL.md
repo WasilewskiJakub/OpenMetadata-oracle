@@ -7,6 +7,9 @@ description: Load and preserve working context for OpenMetadata sessions. Use at
 
 Keep work resumable without expanding the task or duplicating project documentation.
 
+Start also reports repository skill-file integrity. Skill availability in the current agent session
+must be checked separately; a readable file alone is not proof of discovery.
+
 ## Select one mode
 
 - Start: use once before substantive work in a new or resumed session. This is the default when no

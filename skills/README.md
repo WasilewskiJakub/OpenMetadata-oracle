@@ -10,6 +10,41 @@ Inspired by [obra/superpowers](https://github.com/obra/superpowers) and [everyth
 
 They are authoring-time aids, not gates — a skill only fires if an agent reads it. Enforcement is deterministic and lives in `ui-checkstyle`; see [`docs/ui-code-quality-gate.md`](../docs/ui-code-quality-gate.md).
 
+## Project inventory and portability
+
+Keep project skills in Git, including the reviewed third-party bundles. The canonical content lives
+under `skills/`. `.agents/skills/` (Codex) and `.claude/skills/` expose it through relative links inside
+this checkout. Clone the repository with symlink support; copying only the agent directories loses
+their targets. A checkout that materializes links as text files is reported by the check below.
+
+| Origin | Skills | Version/source record |
+|---|---|---|
+| Project-specific | `openmetadata-session` | Versioned with this repository |
+| Project Codex adaptations | `codex-openmetadata-workflow`, `codex-connector-building`, `codex-connector-review`, `codex-connector-standards` | `skills/codex/`; adapted from the OpenMetadata workflow and standards |
+| Locally added communication skill | `i-have-adhd` | `skills/i-have-adhd/`; original external provenance is not recorded |
+| Manually added UI/UX Pro Max | `ui-ux-pro-max`, `ui-styling`, `design`, `design-system`, `brand`, `banner-design`, `slides` | CLI 2.15.0; [source, licenses, and update procedure](vendor/uipro/UPSTREAM.md) |
+| Vercel bundle inherited from OpenMetadata | `react-best-practices`, `composition-patterns`, `web-design-guidelines` | Each directory's `VENDORED.md` pins the upstream commit |
+
+The other OpenMetadata skills listed below are inherited project tooling. User-level `find-skills`,
+GitHub/plugin-management plugins, and built-in skills such as `skill-creator` are not part of this
+checkout. Serena is an MCP server, configured separately from skills.
+
+After cloning, or when a skill appears missing, run from the repository root:
+
+```bash
+bash skills/openmetadata-session/scripts/skill-health.sh
+```
+
+The command lists checked entrypoints and reports missing, broken, changed, absolute, or external
+links. Exit codes: `0` for intact files, `1` for file/link issues, `2` for invocation or Git errors.
+`--summary` suppresses successful entries; session Start already runs that form. The check uses Git
+and Bash without Python packages or network access and never installs or repairs anything.
+
+`skill_agent_visibility=unverified` means the shell cannot inspect the agent's current skill catalog.
+The session instructions require the agent to compare task-relevant entries with its actual catalog
+and report discovery separately. A file being present does not mean its instructions were loaded.
+Do not rerun `uipro init` in a clone: the bundle and links are already supplied by Git.
+
 ## Installation
 
 ### Claude Code (Plugin)
@@ -30,7 +65,7 @@ If you're working in the OpenMetadata repo, `.claude/settings.json` provides pro
 | Tool | Method |
 |------|--------|
 | Cursor | Settings -> Rules -> Add Rule -> select `skills/` directory |
-| Codex | Add `skills/` to workspace context |
+| Codex | Project entrypoints are in `.agents/skills/`; verify discovery with session Start |
 | GitHub Copilot | Reference `skills/` in workspace instructions |
 | Windsurf | Add `skills/` to rules configuration |
 | Any | Skills follow the [Agent Skills](https://agentskills.io) open standard |

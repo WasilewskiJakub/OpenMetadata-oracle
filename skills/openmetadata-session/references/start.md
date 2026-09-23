@@ -30,8 +30,22 @@ state.
    These checks are diagnostic and read-only. Do not run setup, generation, full builds, test
    suites, Docker startup, git fetch, or dependency installation.
 
-4. Check task-relevant skill entrypoints and symlink targets directly. When the skill validator is
-   available, validate only those skills. Do not run make harness-check or
+4. Review the `skill_files` report from step 1. It checks tracked Codex/Claude skill links and readable
+   entrypoints; `skill_agent_visibility=unverified` is deliberate. For a full file inventory, run:
+
+       bash skills/openmetadata-session/scripts/skill-health.sh
+
+   Compare task-relevant skills against the skills actually listed by the current agent environment.
+   Match their name and entrypoint path, allowing provider prefixes and discovery aliases. Report
+   each required skill as AVAILABLE, PRESENT / NOT DISCOVERED, MISSING / BROKEN, or UNVERIFIED when
+   the environment does not expose a catalog. Discovery is not the same as reading the instructions;
+   load only the skills the task needs. Do not infer discovery from a working symlink.
+
+   Project skills are tracked under `skills/`; see `skills/README.md` for ownership and portability.
+   Report missing files or discovery issues with their path. Do not install, overwrite links, or run
+   `uipro init` during Start. User-level plugins and built-in skills are separate, optional tooling.
+
+   When the skill validator is available, validate only task-relevant skills. Do not run make harness-check or
    scripts/harness/check_harness.py during Start because both regenerate docs/generated files.
    Mark the full harness check NIESPRAWDZONE and read only task-relevant SKILL.md files.
 

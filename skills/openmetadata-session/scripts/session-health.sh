@@ -79,6 +79,13 @@ else
   warn
 fi
 
+if [ -r "$SCRIPT_DIR/skill-health.sh" ]; then
+  if ! SKILL_REPORT="$(bash "$SCRIPT_DIR/skill-health.sh" --summary)"; then warn; fi
+else
+  SKILL_REPORT=$'skill_files=unverified\nskill_check=missing\nskill_agent_visibility=unverified'
+  warn
+fi
+
 STATUS="ok"; EXIT_CODE=0
 if [ "$BLOCKERS" -gt 0 ]; then STATUS="blocked"; EXIT_CODE=2
 elif [ "$WARNINGS" -gt 0 ]; then STATUS="warning"; EXIT_CODE=1
@@ -91,5 +98,6 @@ printf '%s\n' \
   "untracked_changes=$UNTRACKED" "diff_check=$DIFF_CHECK" "core_autocrlf=$AUTOCRLF" \
   "lf_index_crlf_worktree=$CRLF" "stale_mount_refs=$STALE_REFS" \
   "agents_sync=$AGENTS_SYNC" "handoff_files=$HANDOFF_COUNT" "latest_handoff=$LATEST"
+printf '%s\n' "$SKILL_REPORT"
 
 exit "$EXIT_CODE"
