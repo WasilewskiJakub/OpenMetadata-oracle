@@ -16,6 +16,7 @@ import { DashboardView } from './components/DashboardView';
 import { Icon } from './components/Icon';
 import { LoadPlanView } from './components/LoadPlanView';
 import { MappingView } from './components/MappingView';
+import { downloadBlob } from './utils/download';
 
 type View = 'connection' | 'dashboard' | 'load-plan' | 'mapping';
 
@@ -126,6 +127,26 @@ export function App({ api }: AppProps) {
     }
   }
 
+  async function exportLoadPlan(mappingOccurrenceIds: string[]): Promise<string> {
+    if (!session || !loadPlan) {
+      throw new Error('Brak aktywnego Load Planu do eksportu.');
+    }
+    try {
+      const download = await client.exportLoadPlanLineage(
+        session.token,
+        loadPlan.id,
+        loadPlan.contextCode,
+        mappingOccurrenceIds
+      );
+      return downloadBlob(download);
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 401) {
+        handleAuthenticatedError(caught, 'Sesja ODI wygasła podczas eksportu.');
+      }
+      throw caught;
+    }
+  }
+
   async function logout() {
     if (session) {
       await closeBackendSession(session.token);
@@ -177,7 +198,7 @@ export function App({ api }: AppProps) {
   }
 
   if (view === 'load-plan' && loadPlan) {
-    return <LoadPlanView contexts={contexts} detail={loadPlan} error={error} session={session} onBack={() => setView('dashboard')} onContextChange={changeContext} onLogout={logout} onOpenMapping={openMapping} />;
+    return <LoadPlanView contexts={contexts} detail={loadPlan} error={error} session={session} onBack={() => setView('dashboard')} onContextChange={changeContext} onExport={exportLoadPlan} onLogout={logout} onOpenMapping={openMapping} />;
   }
 
   return <DashboardView contexts={contexts} error={error} plans={plans} session={session} onLogout={logout} onOpenPlan={openLoadPlan} />;

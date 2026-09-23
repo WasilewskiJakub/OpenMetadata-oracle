@@ -187,6 +187,12 @@ h2 { margin-bottom: 4px; font-size: 1rem; }
 .plan-summary-strip strong { font-size: .8rem; }
 .select-all { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-soft); font-size: .73rem; font-weight: 650; }
 input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); }
+.mapping-toolbar-actions { display: grid; justify-items: end; gap: 7px; }
+.mapping-toolbar-controls { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.export-button { min-height: 44px; padding: 8px 14px; font-size: .72rem; white-space: nowrap; }
+.export-feedback { display: inline-flex; align-items: center; gap: 6px; max-width: 440px; color: var(--text-soft); font-size: .68rem; text-align: right; }
+.export-feedback-success { color: #a9f0d0; }
+.export-feedback-error { color: #ffd9dc; }
 .mapping-list { display: grid; }
 .load-plan-tree-panel { margin-bottom: 20px; }
 .load-plan-tree, .load-plan-tree-children { display: grid; margin: 0; padding: 0; list-style: none; }
@@ -218,6 +224,7 @@ input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var
 .mapping-main > div { display: flex; align-items: center; gap: 8px; }
 .mapping-main strong { font-family: "Fira Code", ui-monospace, monospace; font-size: .78rem; }
 .mapping-main > span { color: var(--text-muted); font-size: .69rem; }
+.mapping-main > .mapping-occurrence-path { display: block; min-width: 0; margin-top: 3px; overflow-wrap: anywhere; color: var(--text-soft); font-family: "Fira Code", ui-monospace, monospace; line-height: 1.35; }
 .scenario-version { padding: 2px 5px; border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted); font-size: .61rem; }
 .scenario-link { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: .68rem; }
 .scenario-link i { width: 32px; height: 1px; background: var(--border-strong); }
@@ -373,6 +380,9 @@ input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var
   .plan-summary-strip > span { border-right: 0; border-bottom: 1px solid var(--border); }
   .plan-summary-strip > span:last-child { border-bottom: 0; }
   .mapping-toolbar { align-items: flex-start; }
+  .mapping-toolbar-actions { width: 100%; justify-items: stretch; }
+  .mapping-toolbar-controls { align-items: stretch; flex-direction: column; }
+  .export-feedback { max-width: none; text-align: left; }
   .mapping-row { grid-template-columns: 30px minmax(0, 1fr); gap: 9px; }
   .mapping-row .mapping-statuses { grid-column: 2; grid-row: auto; }
   .scenario-link { grid-column: 2; flex-wrap: wrap; }

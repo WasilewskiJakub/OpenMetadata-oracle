@@ -6,6 +6,7 @@ export type IconName =
   | 'check'
   | 'chevron-down'
   | 'database'
+  | 'download'
   | 'eye'
   | 'eye-off'
   | 'flow'
@@ -31,6 +32,7 @@ const paths: Record<IconName, React.ReactNode> = {
   check: <path d="m5 12 4 4L19 6" />,
   'chevron-down': <path d="m6 9 6 6 6-6" />,
   database: <><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5" /><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7" /></>,
+  download: <><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></>,
   eye: <><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></>,
   'eye-off': <><path d="m3 3 18 18" /><path d="M10.6 6.2c.5-.1.9-.2 1.4-.2 6 0 9.5 6 9.5 6a16 16 0 0 1-2.2 2.9M6.1 6.1C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6c1.3 0 2.5-.3 3.5-.7" /></>,
   flow: <><rect x="3" y="4" width="6" height="5" rx="1" /><rect x="15" y="15" width="6" height="5" rx="1" /><path d="M9 6.5h3a6 6 0 0 1 6 6V15" /><path d="m15 12 3 3 3-3" /></>,

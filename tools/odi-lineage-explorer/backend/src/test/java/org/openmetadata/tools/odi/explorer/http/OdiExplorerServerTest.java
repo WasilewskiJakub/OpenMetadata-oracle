@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -35,10 +36,16 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
+import org.everit.json.schema.Schema;
+import org.everit.json.schema.loader.SchemaLoader;
+import org.json.JSONObject;
+import org.json.JSONTokener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,6 +66,7 @@ class OdiExplorerServerTest {
   private static final String CONTEXT_QUERY = "?contextCode=DEV";
   private static final String SECRET_FAILURE_MESSAGE = "secret repository password";
   private static final int MAX_REQUEST_BODY_BYTES = 64 * 1024;
+  private static final String EXPORT_SCHEMA_RESOURCE = "odi-lineage-export-v1.schema.json";
 
   private final ObjectMapper objectMapper = new ObjectMapper();
   private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -334,6 +342,147 @@ class OdiExplorerServerTest {
   }
 
   @Test
+  void exportsSelectedLoadPlanColumnLineageAsAnAttachment() throws Exception {
+    final String token = createSessionToken();
+    final Map<String, Object> request =
+        Map.of(
+            "loadPlanId", "lp-sales",
+            "contextCode", "DEV",
+            "mappingOccurrenceIds", List.of("step-orders"));
+
+    final HttpResponse<String> response =
+        sendAuthenticatedJson("POST", "/api/load-plan-exports", token, request);
+    final JsonNode body = json(response);
+    final JsonNode nullDerivation =
+        firstWithTextField(
+            body.get("mappings").get(0).get("columnDerivations"), "kind", "NULL_LITERAL");
+
+    assertEquals(200, response.statusCode());
+    assertEquals("no-store", response.headers().firstValue("Cache-Control").orElseThrow());
+    assertEquals(
+        "attachment; filename=\"odi-lineage_WORKREP_Daily_Sales_Load_DEV.json\"",
+        response.headers().firstValue("Content-Disposition").orElseThrow());
+    assertEquals("1.0", body.get("schemaVersion").asText());
+    assertEquals("odi-lineage-explorer", body.get("producer").get("name").asText());
+    assertEquals("Oracle Data Integrator", body.get("source").get("product").asText());
+    assertEquals("WORKREP", body.get("source").get("repository").get("workRepository").asText());
+    assertEquals("step-orders", body.get("mappingOccurrences").get(0).get("occurrenceId").asText());
+    assertEquals("RUN_SCENARIO", body.get("mappingOccurrences").get(0).get("stepType").asText());
+    assertTrue(body.get("mappingOccurrences").get(0).has("resolutionReason"));
+    assertTrue(body.get("mappingOccurrences").get(0).get("resolutionReason").isNull());
+    assertEquals(1, body.get("mappings").size());
+    assertEquals("DEV", body.get("mappings").get(0).get("contextCode").asText());
+    assertEquals(
+        "ORACLE",
+        body.get("mappings")
+            .get(0)
+            .get("endpoints")
+            .get(0)
+            .get("identity")
+            .get("technology")
+            .asText());
+    assertEquals(0, nullDerivation.get("fromColumns").size());
+    assertTrue(nullDerivation.get("complete").asBoolean());
+    assertTrue(response.body().endsWith("\n"));
+  }
+
+  @Test
+  void exportedAttachmentConformsToTheTrackedV1Schema() throws Exception {
+    final String token = createSessionToken();
+
+    final HttpResponse<String> response =
+        sendAuthenticatedJson(
+            "POST", "/api/load-plan-exports", token, validLoadPlanExportRequest());
+
+    assertEquals(200, response.statusCode());
+    assertValidExportSchema(response.body());
+  }
+
+  @Test
+  void rejectsLoadPlanExportWithoutAuthentication() throws Exception {
+    final HttpResponse<String> response =
+        sendJson("POST", "/api/load-plan-exports", validLoadPlanExportRequest());
+
+    assertEquals(401, response.statusCode());
+    assertEquals("UNAUTHORIZED", json(response).get("code").asText());
+  }
+
+  @Test
+  void rejectsMalformedLoadPlanExportJson() throws Exception {
+    final String token = createSessionToken();
+
+    final HttpResponse<String> response =
+        sendAuthenticatedJsonText("POST", "/api/load-plan-exports", token, "{not-json");
+
+    assertEquals(400, response.statusCode());
+    assertEquals("BAD_REQUEST", json(response).get("code").asText());
+  }
+
+  @Test
+  void rejectsDuplicateLoadPlanMappingOccurrences() throws Exception {
+    final String token = createSessionToken();
+    final Map<String, Object> request = validLoadPlanExportRequest();
+    request.put("mappingOccurrenceIds", List.of("step-orders", "step-orders"));
+
+    final HttpResponse<String> response =
+        sendAuthenticatedJson("POST", "/api/load-plan-exports", token, request);
+
+    assertEquals(400, response.statusCode());
+    assertEquals("BAD_REQUEST", json(response).get("code").asText());
+  }
+
+  @Test
+  void rejectsMoreThanFiveHundredLoadPlanMappingOccurrences() throws Exception {
+    final String token = createSessionToken();
+    final Map<String, Object> request = validLoadPlanExportRequest();
+    request.put(
+        "mappingOccurrenceIds",
+        IntStream.rangeClosed(0, 500).mapToObj(index -> "step-" + index).toList());
+
+    final HttpResponse<String> response =
+        sendAuthenticatedJson("POST", "/api/load-plan-exports", token, request);
+
+    assertEquals(400, response.statusCode());
+    assertEquals(
+        "At most 500 mapping occurrences can be exported", json(response).get("message").asText());
+  }
+
+  @Test
+  void rejectsUnknownLoadPlanMappingOccurrence() throws Exception {
+    final String token = createSessionToken();
+    final Map<String, Object> request = validLoadPlanExportRequest();
+    request.put("mappingOccurrenceIds", List.of("root-step"));
+
+    final HttpResponse<String> response =
+        sendAuthenticatedJson("POST", "/api/load-plan-exports", token, request);
+
+    assertEquals(400, response.statusCode());
+    assertEquals("BAD_REQUEST", json(response).get("code").asText());
+  }
+
+  @Test
+  void rejectsLoadPlanExportLargerThanTheBoundedBodyLimit() throws Exception {
+    final String token = createSessionToken();
+    final String oversizedBody = "x".repeat(MAX_REQUEST_BODY_BYTES + 1);
+
+    final HttpResponse<String> response =
+        sendAuthenticatedJsonText("POST", "/api/load-plan-exports", token, oversizedBody);
+
+    assertEquals(400, response.statusCode());
+    assertEquals("BAD_REQUEST", json(response).get("code").asText());
+  }
+
+  @Test
+  void rejectsUnsupportedLoadPlanExportHttpMethod() throws Exception {
+    final String token = createSessionToken();
+
+    final HttpResponse<String> response = send("GET", "/api/load-plan-exports", token);
+
+    assertEquals(405, response.statusCode());
+    assertEquals("POST", response.headers().firstValue("Allow").orElseThrow());
+  }
+
+  @Test
   void invalidatesSessionOnLogout() throws Exception {
     final String token = createSessionToken();
 
@@ -492,6 +641,32 @@ class OdiExplorerServerTest {
     return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
   }
 
+  private HttpResponse<String> sendAuthenticatedJson(
+      String method, String path, String token, Object body)
+      throws IOException, InterruptedException {
+    return sendAuthenticatedJsonText(method, path, token, objectMapper.writeValueAsString(body));
+  }
+
+  private HttpResponse<String> sendAuthenticatedJsonText(
+      String method, String path, String token, String body)
+      throws IOException, InterruptedException {
+    final HttpRequest request =
+        HttpRequest.newBuilder(baseUri.resolve(path))
+            .header("Content-Type", "application/json")
+            .header(AUTHORIZATION, BEARER + token)
+            .method(method, HttpRequest.BodyPublishers.ofString(body))
+            .build();
+    return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+  }
+
+  private Map<String, Object> validLoadPlanExportRequest() {
+    final Map<String, Object> request = new LinkedHashMap<>();
+    request.put("loadPlanId", "lp-sales");
+    request.put("contextCode", "DEV");
+    request.put("mappingOccurrenceIds", List.of("step-orders"));
+    return request;
+  }
+
   private Map<String, Object> validSessionRequest() {
     final Map<String, Object> request = new LinkedHashMap<>();
     request.put("jdbcUrl", "jdbc:oracle:thin:@localhost:1521/ODIPDB");
@@ -526,5 +701,26 @@ class OdiExplorerServerTest {
     }
     assertNotNull(result);
     return result;
+  }
+
+  private JsonNode firstWithTextField(JsonNode array, String field, String value) {
+    JsonNode result = null;
+    for (final JsonNode item : array) {
+      if (result == null && item.has(field) && value.equals(item.get(field).asText())) {
+        result = item;
+      }
+    }
+    assertNotNull(result);
+    return result;
+  }
+
+  private void assertValidExportSchema(String document) throws IOException {
+    final InputStream schemaStream =
+        getClass().getClassLoader().getResourceAsStream(EXPORT_SCHEMA_RESOURCE);
+    assertNotNull(schemaStream);
+    try (schemaStream) {
+      final Schema schema = SchemaLoader.load(new JSONObject(new JSONTokener(schemaStream)));
+      schema.validate(new JSONObject(document));
+    }
   }
 }

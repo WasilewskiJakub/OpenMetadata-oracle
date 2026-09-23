@@ -23,6 +23,9 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.function.Supplier;
+import org.openmetadata.tools.odi.explorer.export.InvalidExportRequestException;
+import org.openmetadata.tools.odi.explorer.export.LoadPlanLineageExport;
+import org.openmetadata.tools.odi.explorer.export.LoadPlanLineageExportService;
 import org.openmetadata.tools.odi.explorer.model.RepositoryInfo;
 import org.openmetadata.tools.odi.explorer.provider.OdiAuthenticationException;
 import org.openmetadata.tools.odi.explorer.provider.OdiConnectionException;
@@ -49,6 +52,7 @@ final class ExplorerApi {
   private static final String CONTEXTS_PATH = "/api/contexts";
   private static final String LOAD_PLANS_PATH = "/api/load-plans";
   private static final String LOAD_PLAN_PREFIX = LOAD_PLANS_PATH + "/";
+  private static final String LOAD_PLAN_EXPORTS_PATH = "/api/load-plan-exports";
   private static final String MAPPINGS_PATH = "/api/mappings";
   private static final String MAPPING_PREFIX = MAPPINGS_PATH + "/";
   private static final String INTERNAL_ERROR_MESSAGE = "An unexpected server error occurred";
@@ -62,6 +66,8 @@ final class ExplorerApi {
   private final BoundedSessionStore sessions;
   private final Supplier<OdiReadProvider> demoProviderFactory;
   private final OdiProviderFactory providerFactory;
+  private final LoadPlanExportRequestReader exportRequestReader = new LoadPlanExportRequestReader();
+  private final LoadPlanLineageExportService exportService = new LoadPlanLineageExportService();
   private final JsonResponder responder = new JsonResponder();
   private final SessionRequestReader requestReader = new SessionRequestReader();
   private final SessionAuthenticator authenticator;
@@ -83,6 +89,7 @@ final class ExplorerApi {
     server.createContext(CURRENT_SESSION_PATH, safely(this::deleteCurrentSession));
     server.createContext(CONTEXTS_PATH, safely(this::contexts));
     server.createContext(LOAD_PLANS_PATH, safely(this::loadPlans));
+    server.createContext(LOAD_PLAN_EXPORTS_PATH, safely(this::exportLoadPlan));
     server.createContext(MAPPINGS_PATH, safely(this::mapping));
   }
 
@@ -203,6 +210,22 @@ final class ExplorerApi {
     }
   }
 
+  private void exportLoadPlan(HttpExchange exchange) throws IOException {
+    if (acceptExact(exchange, POST, LOAD_PLAN_EXPORTS_PATH)) {
+      final Optional<Session> session = authorize(exchange);
+      if (session.isPresent()) {
+        final LoadPlanExportRequest request = exportRequestReader.read(exchange);
+        final LoadPlanLineageExport export =
+            exportService.export(
+                session.get().provider(),
+                request.loadPlanId(),
+                request.contextCode(),
+                request.mappingOccurrenceIds());
+        responder.attachmentJson(exchange, 200, export, exportService.fileName(export));
+      }
+    }
+  }
+
   private Optional<Session> authorize(HttpExchange exchange) throws IOException {
     final Optional<Session> session = authenticator.authenticate(exchange);
     if (session.isEmpty()) {
@@ -244,6 +267,8 @@ final class ExplorerApi {
       try {
         operation.handle(exchange);
       } catch (BadRequestException exception) {
+        responder.error(exchange, 400, "BAD_REQUEST", exception.getMessage());
+      } catch (InvalidExportRequestException exception) {
         responder.error(exchange, 400, "BAD_REQUEST", exception.getMessage());
       } catch (OdiAuthenticationException exception) {
         logSanitizedFailure(exception);

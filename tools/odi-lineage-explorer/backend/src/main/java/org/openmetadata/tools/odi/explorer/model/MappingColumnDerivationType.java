@@ -13,9 +13,11 @@
 
 package org.openmetadata.tools.odi.explorer.model;
 
-public record PhysicalLocation(
-    String physicalSchema, String dataServer, String catalog, String schema, String technology) {
-  public PhysicalLocation(String physicalSchema, String dataServer, String catalog, String schema) {
-    this(physicalSchema, dataServer, catalog, schema, null);
-  }
+public enum MappingColumnDerivationType {
+  SOURCE_COLUMNS,
+  NULL_LITERAL,
+  SOURCELESS_EXPRESSION,
+  UNMAPPED,
+  INACTIVE,
+  UNKNOWN
 }

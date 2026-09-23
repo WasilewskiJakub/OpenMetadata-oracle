@@ -22,6 +22,8 @@ import org.openmetadata.tools.odi.explorer.model.LoadPlanStep;
 import org.openmetadata.tools.odi.explorer.model.LoadPlanStepType;
 import org.openmetadata.tools.odi.explorer.model.LoadPlanSummary;
 import org.openmetadata.tools.odi.explorer.model.MappingColumn;
+import org.openmetadata.tools.odi.explorer.model.MappingColumnDerivation;
+import org.openmetadata.tools.odi.explorer.model.MappingColumnDerivationType;
 import org.openmetadata.tools.odi.explorer.model.MappingColumnLineage;
 import org.openmetadata.tools.odi.explorer.model.MappingComponent;
 import org.openmetadata.tools.odi.explorer.model.MappingDetail;
@@ -56,15 +58,17 @@ public final class DemoOdiReadProvider implements OdiReadProvider {
           DEV_CONTEXT,
           Map.of(
               SALES_LOGICAL,
-              new PhysicalLocation("oracle-dev.SALES_DEV", "oracle-dev", "ODIPDB", "SALES_DEV"),
+              new PhysicalLocation(
+                  "oracle-dev.SALES_DEV", "oracle-dev", "ODIPDB", "SALES_DEV", "ORACLE"),
               DWH_LOGICAL,
-              new PhysicalLocation("oracle-dev.DWH_DEV", "oracle-dev", "ODIPDB", "DWH_DEV")),
+              new PhysicalLocation(
+                  "oracle-dev.DWH_DEV", "oracle-dev", "ODIPDB", "DWH_DEV", "ORACLE")),
           PROD_CONTEXT,
           Map.of(
               SALES_LOGICAL,
-              new PhysicalLocation("oracle-prod.SALES", "oracle-prod", "ODIPDB", "SALES"),
+              new PhysicalLocation("oracle-prod.SALES", "oracle-prod", "ODIPDB", "SALES", "ORACLE"),
               DWH_LOGICAL,
-              new PhysicalLocation("oracle-prod.DWH", "oracle-prod", "ODIPDB", "DWH")));
+              new PhysicalLocation("oracle-prod.DWH", "oracle-prod", "ODIPDB", "DWH", "ORACLE")));
 
   @Override
   public RepositoryInfo repository() {
@@ -148,7 +152,28 @@ public final class DemoOdiReadProvider implements OdiReadProvider {
                 "orders-source",
                 "orders-source::AMOUNT",
                 "sales-target",
-                "sales-target::TOTAL_AMOUNT")));
+                "sales-target::TOTAL_AMOUNT")),
+        mappingColumnDerivations(),
+        List.of());
+  }
+
+  private List<MappingColumnDerivation> mappingColumnDerivations() {
+    return List.of(
+        new MappingColumnDerivation(
+            "sales-target",
+            "sales-target::ORDER_ID",
+            MappingColumnDerivationType.SOURCE_COLUMNS,
+            true),
+        new MappingColumnDerivation(
+            "sales-target",
+            "sales-target::CUSTOMER_KEY",
+            MappingColumnDerivationType.NULL_LITERAL,
+            true),
+        new MappingColumnDerivation(
+            "sales-target",
+            "sales-target::TOTAL_AMOUNT",
+            MappingColumnDerivationType.SOURCE_COLUMNS,
+            true));
   }
 
   private List<MappingComponent> mappingComponents(Map<String, PhysicalLocation> locations) {

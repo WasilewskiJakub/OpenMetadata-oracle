@@ -184,6 +184,7 @@ describe('LoadPlanView execution state', () => {
         session={session}
         onBack={vi.fn()}
         onContextChange={vi.fn()}
+        onExport={vi.fn()}
         onLogout={vi.fn()}
         onOpenMapping={vi.fn()}
       />

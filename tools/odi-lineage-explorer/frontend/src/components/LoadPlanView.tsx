@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { ContextCode, LoadPlanDetail, OdiContext, SessionInfo } from '../api/types';
+import type {
+  ContextCode,
+  LoadPlanDetail,
+  OdiContext,
+  ScenarioMapping,
+  SessionInfo,
+} from '../api/types';
 import { AppShell } from './AppShell';
 import { Icon } from './Icon';
 import { LoadPlanTree } from './LoadPlanTree';
@@ -12,8 +18,14 @@ interface LoadPlanViewProps {
   session: SessionInfo;
   onBack(): void;
   onContextChange(context: ContextCode): void;
+  onExport(mappingOccurrenceIds: string[]): Promise<string>;
   onLogout(): void;
   onOpenMapping(id: string): void;
+}
+
+interface ExportFeedback {
+  kind: 'error' | 'success';
+  message: string;
 }
 
 function resolutionLabel(resolution: string) {
@@ -25,6 +37,17 @@ function resolutionLabel(resolution: string) {
   }
 }
 
+function mappingOccurrencePath(mapping: ScenarioMapping): string {
+  if (mapping.stepPath?.length) return mapping.stepPath.join(' / ');
+  return mapping.stepName?.trim() || mapping.stepId;
+}
+
+function mappingSelectionLabel(mapping: ScenarioMapping): string {
+  const path = mappingOccurrencePath(mapping);
+  const occurrenceId = path === mapping.stepId ? '' : `; ID ${mapping.stepId}`;
+  return `Wybierz ${mapping.mappingName ?? mapping.scenarioName}; wystąpienie ${path}${occurrenceId}`;
+}
+
 export function LoadPlanView({
   contexts,
   detail,
@@ -32,31 +55,68 @@ export function LoadPlanView({
   session,
   onBack,
   onContextChange,
+  onExport,
   onLogout,
   onOpenMapping,
 }: LoadPlanViewProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
   const selectableIds = detail.mappings.flatMap((item) => item.mappingId ? [item.stepId] : []);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(selectableIds));
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportFeedback, setExportFeedback] = useState<ExportFeedback>();
 
   useEffect(() => {
     headingRef.current?.focus();
     setSelectedIds(new Set(selectableIds));
+    setExportFeedback(undefined);
   }, [detail.id, detail.contextCode]);
 
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+  const someSelected = selectedIds.size > 0 && !allSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someSelected;
+    }
+  }, [someSelected]);
 
   function toggleAll() {
+    setExportFeedback(undefined);
     setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
   }
 
   function toggleMapping(id: string) {
+    setExportFeedback(undefined);
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  }
+
+  async function exportSelectedMappings() {
+    if (isExporting || selectedIds.size === 0) return;
+    setIsExporting(true);
+    setExportFeedback(undefined);
+    try {
+      const selectedOccurrenceIds = selectableIds.filter((id) => selectedIds.has(id));
+      const fileName = await onExport(selectedOccurrenceIds);
+      setExportFeedback({
+        kind: 'success',
+        message: `Rozpoczęto pobieranie: ${fileName}`,
+      });
+    } catch (caught) {
+      setExportFeedback({
+        kind: 'error',
+        message: caught instanceof Error
+          ? caught.message
+          : 'Nie udało się przygotować eksportu JSON.',
+      });
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   return (
@@ -94,7 +154,29 @@ export function LoadPlanView({
       <section className="data-panel" aria-labelledby="mapping-list-title">
         <header className="panel-toolbar mapping-toolbar">
           <div><h2 id="mapping-list-title">Mappingi w Load Planie</h2><span>Scenariusze połączone ze źródłowymi mappingami</span></div>
-          <label className="select-all"><input checked={allSelected} onChange={toggleAll} type="checkbox" />Wybierz wszystkie mappingi</label>
+          <div className="mapping-toolbar-actions">
+            <div className="mapping-toolbar-controls">
+              <label className="select-all"><input ref={selectAllRef} aria-checked={someSelected ? 'mixed' : allSelected} checked={allSelected} onChange={toggleAll} type="checkbox" />Wybierz wszystkie mappingi</label>
+              <button
+                aria-busy={isExporting}
+                className="primary-button export-button"
+                disabled={selectedIds.size === 0 || isExporting}
+                type="button"
+                onClick={exportSelectedMappings}>
+                <Icon name="download" />
+                {isExporting ? 'Przygotowuję JSON…' : 'Eksportuj JSON'}
+              </button>
+            </div>
+            {exportFeedback ? (
+              <span
+                aria-live={exportFeedback.kind === 'success' ? 'polite' : 'assertive'}
+                className={`export-feedback export-feedback-${exportFeedback.kind}`}
+                role={exportFeedback.kind === 'success' ? 'status' : 'alert'}>
+                {exportFeedback.kind === 'success' ? <Icon name="check" /> : <Icon name="warning" />}
+                {exportFeedback.message}
+              </span>
+            ) : null}
+          </div>
         </header>
         <div className="mapping-list">
           {detail.mappings.map((item) => {
@@ -102,11 +184,12 @@ export function LoadPlanView({
             return (
               <article className={`mapping-row ${isSelectable ? '' : 'mapping-row-muted'}`} key={item.stepId}>
                 <div className="mapping-select-cell">
-                  {item.mappingId ? <input aria-label={`Wybierz ${item.mappingName}`} checked={selectedIds.has(item.stepId)} onChange={() => toggleMapping(item.stepId)} type="checkbox" /> : <span className="procedure-marker"><Icon name="warning" /></span>}
+                  {item.mappingId ? <input aria-label={mappingSelectionLabel(item)} checked={selectedIds.has(item.stepId)} onChange={() => toggleMapping(item.stepId)} type="checkbox" /> : <span className="procedure-marker"><Icon name="warning" /></span>}
                 </div>
                 <div className="mapping-main">
                   <div><span className="scenario-version">v{item.scenarioVersion}</span><strong>{item.scenarioName}</strong></div>
                   {item.project || item.folder ? <span>{item.project ?? '—'} / {item.folder ?? '—'}</span> : null}
+                  <span className="mapping-occurrence-path">Wystąpienie: {mappingOccurrencePath(item)}</span>
                   {item.resolutionReason ? <span>{item.resolutionReason}</span> : null}
                 </div>
                 <div className="scenario-link"><span>Scenariusz</span><i /><span>{item.mappingName ?? 'Procedura'}</span></div>

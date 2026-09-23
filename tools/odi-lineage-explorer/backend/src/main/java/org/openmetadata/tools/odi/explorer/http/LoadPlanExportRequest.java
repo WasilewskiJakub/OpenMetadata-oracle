@@ -11,11 +11,9 @@
  *  limitations under the License.
  */
 
-package org.openmetadata.tools.odi.explorer.model;
+package org.openmetadata.tools.odi.explorer.http;
 
-public record PhysicalLocation(
-    String physicalSchema, String dataServer, String catalog, String schema, String technology) {
-  public PhysicalLocation(String physicalSchema, String dataServer, String catalog, String schema) {
-    this(physicalSchema, dataServer, catalog, schema, null);
-  }
-}
+import java.util.List;
+
+record LoadPlanExportRequest(
+    String loadPlanId, String contextCode, List<String> mappingOccurrenceIds) {}

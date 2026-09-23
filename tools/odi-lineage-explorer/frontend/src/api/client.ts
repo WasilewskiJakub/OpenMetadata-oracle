@@ -1,8 +1,15 @@
-import { demoContexts, demoLoadPlans, getDemoLoadPlan, getDemoMapping } from './demoData';
+import {
+  demoContexts,
+  demoLoadPlans,
+  getDemoLineageExport,
+  getDemoLoadPlan,
+  getDemoMapping,
+} from './demoData';
 import type {
   ApiClient,
   ContextCode,
   LoadPlanDetail,
+  LineageExportDownload,
   LoadPlanStepType,
   LoadPlanSummary,
   MappingDetail,
@@ -73,6 +80,32 @@ async function request<T>(path: string, token?: string, init?: RequestInit): Pro
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }
 
+async function requestBlob(
+  path: string,
+  token: string,
+  init: RequestInit
+): Promise<LineageExportDownload> {
+  const response = await fetch(`${API_ROOT}${path}`, {
+    ...init,
+    headers: {
+      Accept: 'application/json',
+      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      Authorization: `Bearer ${token}`,
+      ...init.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await readErrorPayload(response);
+    throw new ApiError(response.status, error.code, error.message);
+  }
+
+  const contentDisposition = response.headers.get('Content-Disposition');
+  const fileName = contentDisposition?.match(/filename="?([^";]+)"?/i)?.[1]
+    ?? 'odi-lineage-export.json';
+  return { blob: await response.blob(), fileName };
+}
+
 export function createHttpApiClient(): ApiClient {
   return {
     createSession: async (credentials) => {
@@ -107,6 +140,11 @@ export function createHttpApiClient(): ApiClient {
       );
       return toMappingDetail(mapping);
     },
+    exportLoadPlanLineage: (token, loadPlanId, contextCode, mappingOccurrenceIds) =>
+      requestBlob('/load-plan-exports', token, {
+        method: 'POST',
+        body: JSON.stringify({ loadPlanId, contextCode, mappingOccurrenceIds }),
+      }),
     endSession: (token) =>
       request<void>('/sessions/current', token, { method: 'DELETE' }),
   };
@@ -155,6 +193,10 @@ export function createDemoApiClient(): ApiClient {
     async getMapping(token, id, contextCode) {
       assertSession(token);
       return getDemoMapping(id, contextCode);
+    },
+    async exportLoadPlanLineage(token, loadPlanId, contextCode, mappingOccurrenceIds) {
+      assertSession(token);
+      return getDemoLineageExport(loadPlanId, contextCode, mappingOccurrenceIds);
     },
     async endSession(token) {
       assertSession(token);

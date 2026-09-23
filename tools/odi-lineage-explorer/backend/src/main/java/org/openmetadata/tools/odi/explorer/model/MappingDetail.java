@@ -22,6 +22,7 @@ public record MappingDetail(
     List<MappingComponent> components,
     List<MappingEdge> edges,
     List<MappingColumnLineage> columnLineage,
+    List<MappingColumnDerivation> columnDerivations,
     List<String> warnings) {
   public MappingDetail(
       String id,
@@ -30,13 +31,25 @@ public record MappingDetail(
       List<MappingComponent> components,
       List<MappingEdge> edges,
       List<MappingColumnLineage> columnLineage) {
-    this(id, name, contextCode, components, edges, columnLineage, List.of());
+    this(id, name, contextCode, components, edges, columnLineage, List.of(), List.of());
+  }
+
+  public MappingDetail(
+      String id,
+      String name,
+      String contextCode,
+      List<MappingComponent> components,
+      List<MappingEdge> edges,
+      List<MappingColumnLineage> columnLineage,
+      List<String> warnings) {
+    this(id, name, contextCode, components, edges, columnLineage, List.of(), warnings);
   }
 
   public MappingDetail {
     components = List.copyOf(components);
     edges = List.copyOf(edges);
     columnLineage = List.copyOf(columnLineage);
+    columnDerivations = List.copyOf(columnDerivations);
     warnings = List.copyOf(warnings);
   }
 }

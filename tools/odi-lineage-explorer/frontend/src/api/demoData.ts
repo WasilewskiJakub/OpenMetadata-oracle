@@ -3,6 +3,7 @@ import type {
   LoadPlanDetail,
   LoadPlanSummary,
   LoadPlanTreeStep,
+  LineageExportDownload,
   MappingDetail,
   OdiContext,
   PhysicalObjectMetadata,
@@ -222,6 +223,7 @@ export function getDemoMapping(id: string, contextCode: ContextCode): MappingDet
           { id: 'fact-customer-key', name: 'CUSTOMER_KEY' },
           { id: 'fact-net-amount', name: 'NET_AMOUNT' },
           { id: 'fact-country-code', name: 'COUNTRY_CODE' },
+          { id: 'fact-load-note', name: 'LOAD_NOTE' },
         ],
         metadata: datastoreMetadata(contextCode, {
           alias: 'TGT_ORDER_FACT',
@@ -271,5 +273,145 @@ export function getDemoMapping(id: string, contextCode: ContextCode): MappingDet
         toColumnId: 'fact-country-code',
       },
     ],
+  };
+}
+
+export function getDemoLineageExport(
+  loadPlanId: string,
+  contextCode: ContextCode,
+  mappingOccurrenceIds: string[]
+): LineageExportDownload {
+  if (mappingOccurrenceIds.length === 0) {
+    throw new Error('Wybierz co najmniej jedno wystąpienie mappingu.');
+  }
+  if (mappingOccurrenceIds.length > 500) {
+    throw new Error(
+      'Jednorazowo można wyeksportować maksymalnie 500 wystąpień mappingów.'
+    );
+  }
+  const loadPlan = getDemoLoadPlan(loadPlanId, contextCode);
+  const requestedOccurrenceIds = new Set(mappingOccurrenceIds);
+  if (requestedOccurrenceIds.size !== mappingOccurrenceIds.length) {
+    throw new Error('Lista wystąpień mappingów zawiera duplikaty.');
+  }
+  const selectedOccurrences = loadPlan.mappings.filter(
+    (mapping) => mapping.mappingId && requestedOccurrenceIds.has(mapping.stepId)
+  );
+  if (selectedOccurrences.length !== requestedOccurrenceIds.size) {
+    throw new Error('Wybrano wystąpienie mappingu spoza bieżącego Load Planu.');
+  }
+
+  const mappedIds = new Set<string>();
+  const selectedMappings = selectedOccurrences.flatMap((occurrence) => {
+    if (!occurrence.mappingId || mappedIds.has(occurrence.mappingId)) return [];
+    mappedIds.add(occurrence.mappingId);
+    return [getDemoMapping(occurrence.mappingId, contextCode)];
+  });
+  const stepById = new Map(loadPlan.steps.map((step) => [step.id, step]));
+  const document = {
+    schemaVersion: '1.0',
+    producer: {
+      name: 'odi-lineage-explorer',
+      version: '0.1.0',
+    },
+    source: {
+      product: 'Oracle Data Integrator',
+      productVersion: '14.1.2.0.0',
+      repository: {
+        name: 'ODI_DEMO',
+        masterRepository: 'ODI_DEMO_MASTER',
+        workRepository: 'ODI_DEMO_WORK',
+      },
+    },
+    loadPlan: {
+      id: loadPlan.id,
+      name: loadPlan.name,
+      contextCode,
+    },
+    mappingOccurrences: selectedOccurrences.map((occurrence) => {
+      const step = stepById.get(occurrence.stepId);
+      return {
+        occurrenceId: occurrence.stepId,
+        parentOccurrenceId: step?.parentStepId ?? null,
+        path: step?.path ?? occurrence.stepPath ?? [],
+        stepType: step?.stepType === 'PACKAGE_MAPPING'
+          ? 'PACKAGE_MAPPING'
+          : 'RUN_SCENARIO',
+        enabled: occurrence.enabled,
+        declaredContextCode:
+          step?.declaredContextCode ?? occurrence.declaredContextCode ?? null,
+        scenarioName: occurrence.scenarioName,
+        scenarioVersion: occurrence.scenarioVersion,
+        mappingId: occurrence.mappingId as string,
+        mappingName: occurrence.mappingName ?? occurrence.scenarioName,
+        resolution: occurrence.resolution,
+        resolutionReason: occurrence.resolutionReason ?? null,
+      };
+    }),
+    mappings: selectedMappings.map((mapping) => ({
+      id: mapping.id,
+      name: mapping.name,
+      contextCode: mapping.contextCode,
+      endpoints: mapping.nodes.map((node) => ({
+        endpointId: node.id,
+        role: node.kind === 'DATASTORE_SOURCE' ? 'SOURCE' : 'TARGET',
+        alias: node.metadata?.alias ?? null,
+        datastoreName: node.metadata?.datastoreName ?? null,
+        identity: {
+          technology: 'ORACLE',
+          dataServer: node.metadata?.dataServer ?? null,
+          catalog: node.metadata?.catalog ?? null,
+          schema: node.metadata?.schema ?? null,
+          resourceName: node.metadata?.resourceName ?? null,
+          logicalSchema: node.metadata?.logicalSchema ?? null,
+          modelName: node.metadata?.modelName ?? null,
+          physicalSchema: node.metadata?.physicalSchema ?? null,
+        },
+        columns: node.columns,
+      })),
+      tableEdges: mapping.edges.map((edge) => ({
+        fromEndpointId: edge.from,
+        toEndpointId: edge.to,
+      })),
+      columnDerivations: mapping.nodes
+        .filter((node) => node.kind === 'DATASTORE_TARGET')
+        .flatMap((node) => node.columns.map((column) => {
+          const fromColumns = mapping.columnLineage
+            .filter(
+              (edge) =>
+                edge.toComponentId === node.id && edge.toColumnId === column.id
+            )
+            .map((edge) => ({
+              endpointId: edge.fromComponentId,
+              columnId: edge.fromColumnId,
+            }));
+          const isNullLiteral = column.id === 'fact-load-note';
+          return {
+            toColumn: { endpointId: node.id, columnId: column.id },
+            fromColumns: isNullLiteral ? [] : fromColumns,
+            kind: isNullLiteral
+              ? 'NULL_LITERAL'
+              : fromColumns.length > 0
+                ? 'SOURCE_COLUMNS'
+                : 'UNMAPPED',
+            complete: true,
+          };
+        })),
+      warnings: mapping.warnings,
+    })),
+  };
+  const sanitize = (value: string) => value.replace(/[^A-Za-z0-9._-]+/g, '_');
+  const fileName = [
+    'odi-lineage',
+    'ODI_DEMO_WORK',
+    loadPlan.name,
+    contextCode,
+  ].map(sanitize).join('_') + '.json';
+
+  return {
+    blob: new Blob([`${JSON.stringify(document, null, 2)}\n`], {
+      type: 'application/json',
+    }),
+    fileName,
   };
 }

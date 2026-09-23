@@ -62,6 +62,8 @@ async function openDemoDashboard() {
 
 describe('ODI Lineage Explorer', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     window.localStorage.clear();
   });
 
@@ -233,8 +235,12 @@ describe('ODI Lineage Explorer', () => {
     const selectAll = await screen.findByRole('checkbox', {
       name: 'Wybierz wszystkie mappingi',
     });
-    const mappingOne = screen.getByRole('checkbox', { name: 'Wybierz MAP_LOAD_ORDERS' });
-    const mappingTwo = screen.getByRole('checkbox', { name: 'Wybierz MAP_SALES_FACT' });
+    const mappingOne = screen.getByRole('checkbox', {
+      name: 'Wybierz MAP_LOAD_ORDERS; wystąpienie step-orders',
+    });
+    const mappingTwo = screen.getByRole('checkbox', {
+      name: 'Wybierz MAP_SALES_FACT; wystąpienie step-sales-fact',
+    });
 
     expect(selectAll).toBeChecked();
     expect(mappingOne).toBeChecked();
@@ -245,6 +251,58 @@ describe('ODI Lineage Explorer', () => {
     expect(mappingOne).not.toBeChecked();
     expect(mappingTwo).not.toBeChecked();
     expect(screen.queryByRole('checkbox', { name: /PROC_REFRESH_AUDIT/ })).not.toBeInTheDocument();
+  });
+
+  it('pobiera eksport bieżącego Contextu przez handler aplikacji', async () => {
+    const user = userEvent.setup();
+    const api = createDemoApiClient();
+    const exportLoadPlanLineage = vi.spyOn(api, 'exportLoadPlanLineage');
+    const createObjectURL = vi.fn().mockReturnValue('blob:demo-export');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL });
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+    render(<App api={api} />);
+
+    await user.click(screen.getByRole('button', { name: 'Otwórz demo' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Otwórz load plan LP_DAILY_SALES' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Eksportuj JSON' }));
+
+    expect(exportLoadPlanLineage).toHaveBeenCalledWith(
+      'demo-session-memory-only',
+      'lp-daily-sales',
+      'DEV',
+      ['step-orders', 'step-sales-fact']
+    );
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(anchorClick).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:demo-export');
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'odi-lineage_ODI_DEMO_WORK_LP_DAILY_SALES_DEV.json'
+    );
+  });
+
+  it('czyści sesję po odpowiedzi 401 podczas eksportu', async () => {
+    const user = userEvent.setup();
+    const api = createDemoApiClient();
+    api.exportLoadPlanLineage = vi.fn().mockRejectedValue(
+      new ApiError(401, 'UNAUTHORIZED', 'Sesja ODI wygasła podczas eksportu.')
+    );
+    render(<App api={api} />);
+
+    await user.click(screen.getByRole('button', { name: 'Otwórz demo' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Otwórz load plan LP_DAILY_SALES' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Eksportuj JSON' }));
+
+    expect(await screen.findByRole('heading', { name: 'Połączenie z ODI' })).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Sesja ODI wygasła podczas eksportu.'
+    );
   });
 
   it('rozwiązuje logical schema przez wybrany Context i pokazuje fizyczne metadane', async () => {

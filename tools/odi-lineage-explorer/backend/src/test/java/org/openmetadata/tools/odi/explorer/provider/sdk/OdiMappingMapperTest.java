@@ -355,6 +355,7 @@ class OdiMappingMapperTest {
     when(mapping.getName()).thenReturn("GOSIA_COUNTRY_SRC_MAP");
     when(mapping.getAllComponents()).thenReturn(List.of(source));
     when(physicalSchema.getTechnology()).thenReturn(technology);
+    when(technology.getInternalName()).thenReturn("ORACLE");
     when(technology.isCatalogSupported()).thenReturn(false);
     when(technology.isSchemaSupported()).thenReturn(true);
 
@@ -363,6 +364,8 @@ class OdiMappingMapperTest {
     assertThat(result.components().getFirst().datastore().physicalLocation().catalog()).isNull();
     assertThat(result.components().getFirst().datastore().physicalLocation().schema())
         .isEqualTo("SALES_DEV");
+    assertThat(result.components().getFirst().datastore().physicalLocation().technology())
+        .isEqualTo("ORACLE");
     verify(physicalSchema, never()).getCatalogName();
   }
 
@@ -656,6 +659,7 @@ class OdiMappingMapperTest {
     when(physicalSchema.getName()).thenReturn("SALES_DEV_PS");
     when(physicalSchema.getDataServer()).thenReturn(dataServer);
     when(physicalSchema.getTechnology()).thenReturn(technology);
+    when(technology.getInternalName()).thenReturn("ORACLE");
     when(technology.isCatalogSupported()).thenReturn(true);
     when(technology.isSchemaSupported()).thenReturn(true);
     when(dataServer.getName()).thenReturn("ORACLE_DEV");

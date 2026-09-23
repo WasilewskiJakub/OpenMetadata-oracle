@@ -1,7 +1,7 @@
 # ODI Lineage Explorer architecture
 
-Status: MVP decision record. This document describes the explorer that precedes any OpenMetadata
-connector or metadata export contract.
+Status: implemented explorer and JSON v1 export. The experimental OpenMetadata importer was removed
+and is deferred.
 
 ## Product boundary
 
@@ -15,6 +15,9 @@ React frontend
 Java 21 backend
     -> user-provided, version-specific ODI SDK libraries
     -> ODI Master and Work repositories (read only)
+
+ODI Lineage Export v1 JSON
+    -> future independent metadata consumer
 ```
 
 The implemented and tested adapter targets ODI 14.1.2. The provider boundary may host an ODI 12c
@@ -32,9 +35,9 @@ libraries and integration tests.
 - `tools/odi-extractor` remains an SDK feasibility spike. Proven behavior may move into a dedicated
   explorer adapter later; the explorer must not depend on the spike as a running service.
 
-The REST payloads exchanged between the backend and browser are internal view DTOs. Although they
-are encoded as JSON, they are **not** the future export format and carry no compatibility promise for
-OpenMetadata ingestion.
+The REST payloads exchanged between the backend and browser are internal view DTOs and carry no
+compatibility promise. The only exception is the dedicated, versioned Load Plan export documented in
+`odi-lineage-export-v1.md` and `odi-lineage-export-v1.schema.json`.
 
 ## MVP workflow
 
@@ -44,7 +47,9 @@ OpenMetadata ingestion.
 4. The user opens a Load Plan, selects a Context, and selects all or individual Mapping occurrences.
 5. The user opens a Mapping to inspect real source and target datastores, table-level paths, and
    column-level dependencies. Transformation components remain internal to lineage traversal.
-6. Closing or expiring the session destroys the ODI SDK instance and removes the credentials from
+6. The user exports selected Mapping occurrences for the selected Context as a deterministic JSON v1
+   attachment. Export is read-only and contains no connection data, raw expressions, or credentials.
+7. Closing or expiring the session destroys the ODI SDK instance and removes the credentials from
    application memory.
 
 Connections are never saved in an application database, file, browser storage, or reusable profile.
@@ -114,6 +119,13 @@ separate. Traversal has bounded depth, state, edge, and warning counts. SDK pars
 broken reusable-signature bridges, and exhausted safety limits produce an
 explicit incomplete-lineage warning; the reader never guesses a column from an alias or expression
 string.
+
+The export additionally records one derivation status for every bound target assignment. An exact,
+case-insensitive `NULL` expression is `NULL_LITERAL`; another non-empty expression or positively
+resolved non-column reference is `SOURCELESS_EXPRESSION`; disabled and unassigned attributes are `INACTIVE` and
+`UNMAPPED`. SDK failures and exhausted traversal limits are `UNKNOWN` or a partial
+`SOURCE_COLUMNS` result with `complete=false`. Raw expression text and literal values are never
+exported, and a source-less derivation never creates a synthetic source node.
 
 Table arrows are collapsed source-to-target paths through hidden transformations. Column arrows use
 the resolved bound-column dependencies. The UI keeps sources on the left and targets on the right,
@@ -242,13 +254,37 @@ If any login or SDK operation requires a repository write, the connection must f
 administrative action must be completed outside this application. The explorer must not receive DML
 privileges to make authentication convenient.
 
+## JSON v1 export boundary
+
+`POST /api/load-plan-exports` accepts one Load Plan, one explicitly selected Context, and 1–500
+Mapping occurrence IDs. Occurrence IDs are validated against the resolved Load Plan tree and kept
+separate from Mapping IDs, so repeated uses of the same Mapping remain visible while the Mapping
+definition is emitted once. The backend reads every selected Mapping using that selected Context;
+the step's declared Context is retained separately.
+
+The contract stores component aliases only as provenance. Physical tables retain the exact
+case-preserving `technology`, Data Server, catalog, schema, and resource name resolved from the
+Mapping and Context. Filters, expressions, joins, aggregates, and Reusable Mapping signatures remain
+internal traversal nodes. The output is deterministic pretty JSON with explicit nulls, a bounded
+column-edge count, `Cache-Control: no-store`, and a safe attachment filename. It contains no session
+token, JDBC URL, username, password, raw expression, SQL, or literal value.
+
+Request-local collections are capped at 500 occurrences and unique Mappings, 10,000 endpoints,
+500,000 columns and derivations, and 250,000 table and column edges. Attachment serialization writes
+directly into a 64 MiB bounded byte buffer and sends headers only after serialization succeeds; an
+oversized export is rejected instead of truncated.
+
+The normative contract is [ODI Lineage Export v1](odi-lineage-export-v1.md); its Draft-07
+[JSON Schema](odi-lineage-export-v1.schema.json) is the input boundary for any future consumer.
+Existing UI DTOs must not be treated as export formats.
+
 ## Non-goals for this MVP
 
-- Exporting JSON, NDJSON, XML, or any other interchange artifact.
-- Defining the future export schema.
-- Integrating with, embedding in, or writing entities to OpenMetadata.
-- Choosing stable external IDs, OpenMetadata FQNs, deduplication keys, or repeated-import update
-  semantics.
+- Integrating OpenMetadata libraries into the Explorer process or letting Explorer write entities
+  directly; a future consumer must own that boundary separately.
+- Guessing OpenMetadata services, UUIDs, or FQNs inside the ODI exporter.
+- Deleting stale OpenMetadata lineage without an explicit ownership and reconciliation policy.
+- Exporting NDJSON, XML, or raw ODI expressions.
 - Executing Scenarios, Mappings, Procedures, Packages, or Load Plans.
 - Creating or modifying ODI repository objects.
 - Deriving lineage from Procedures or arbitrary SQL.
@@ -256,7 +292,7 @@ privileges to make authentication convenient.
 - Exporting expression text or creating synthetic tables for Mapping components.
 - Persisting connection profiles, repository credentials, or explorer sessions across restarts.
 
-The internal REST JSON exists only to render the current UI. It must not be reused as an export format
+Internal REST view JSON still exists only to render the UI. It must not be reused as an export format
 by accident.
 
 ## Production acceptance criteria for the real ODI SDK adapter
@@ -280,13 +316,22 @@ production-ready only after all of the following are available:
 - A read-only integration test completes the representative browsing workflow and confirms through
   database audit records that repository state did not change.
 
-## Deferred contract decision
+## Deferred OpenMetadata consumer boundary
 
-Only after the explorer displays real repository metadata correctly will the project design an export
-contract and the OpenMetadata adapter. That later decision must use observed values for aliases,
-resource names, Context resolution, duplicate Mapping occurrences, stale Scenarios, and multi-source /
-multi-target lineage.
+A future consumer must map exact ODI Data Server coordinates to configured catalog services and
+databases, resolve existing tables and columns, and aggregate selected occurrences by physical table
+pair. It must never derive entity identity from a component alias, create transformation entities, or
+package Oracle JARs.
 
-Stable naming, FQN construction, and idempotent repeated imports are deliberately unresolved here. They
-must be designed together with the future OpenMetadata ingestion contract so that importing the same
-logical object updates it instead of creating duplicates.
+A future OpenMetadata implementation may represent one export as a stable Pipeline named
+`odi-<loadPlanId>-<contextCode>`. Only mappings referenced by enabled, `RESOLVED` occurrences should
+contribute lineage. Missing or ambiguous topology, columns, incomplete derivations, and exporter
+warnings must fail closed. `NULL_LITERAL`, `SOURCELESS_EXPRESSION`, `UNMAPPED`, and `INACTIVE` remain
+export facts and must not create fake OpenMetadata column edges.
+
+A future reconciliation design must perform an ownership preflight before mutation, preserve lineage
+owned by other sources, and define idempotent removal of dependencies and table pairs that disappear.
+
+The removed prototype showed that OpenMetadata currently supports one Pipeline owner and one
+lineage-detail document per physical table pair. Multi-Load-Plan aggregation and transactional
+replacement therefore remain unresolved design requirements.

@@ -26,10 +26,14 @@ import oracle.odi.domain.mapping.MapAttribute;
 import oracle.odi.domain.mapping.MapComponent;
 import oracle.odi.domain.mapping.MapConnectorPoint;
 import oracle.odi.domain.mapping.component.DatastoreComponent;
+import oracle.odi.domain.mapping.component.InputSignature;
 import oracle.odi.domain.mapping.component.ReusableMappingComponent;
 import oracle.odi.domain.mapping.expression.MapExpression;
+import oracle.odi.domain.mapping.xreference.IExpressionReferencedObject;
 import oracle.odi.domain.mapping.xreference.MapExpressionXRef;
 import org.junit.jupiter.api.Test;
+import org.openmetadata.tools.odi.explorer.model.MappingColumnDerivation;
+import org.openmetadata.tools.odi.explorer.model.MappingColumnDerivationType;
 import org.openmetadata.tools.odi.explorer.model.MappingColumnLineage;
 
 class OdiColumnLineageResolverTest {
@@ -152,7 +156,42 @@ class OdiColumnLineageResolverTest {
     assertThat(result.edges())
         .extracting(MappingColumnLineage::fromColumnId)
         .containsExactly("MAP.SRC_A::VALUE_A", "MAP.SRC_B::VALUE_B");
+    assertThat(result.derivations())
+        .containsExactly(
+            new MappingColumnDerivation(
+                "MAP.TGT",
+                "MAP.TGT::TOTAL_VALUE",
+                MappingColumnDerivationType.SOURCE_COLUMNS,
+                true));
     assertThat(result.warnings()).isEmpty();
+  }
+
+  @Test
+  void keepsResolvedSourcesButMarksTheDerivationIncompleteWhenAnotherBranchFails()
+      throws Exception {
+    final DatastoreComponent source = datastore("MAP.SRC", true, false);
+    final DatastoreComponent target = datastore("MAP.TGT", false, true);
+    final MapAttribute sourceValue = boundAttribute(source, "VALUE", false);
+    final MapAttribute targetValue = boundAttribute(target, "VALUE", true);
+    final MapComponent orphanInputSignature = component("REUSABLE.INPUT");
+    final MapAttribute unresolvedValue = attribute(orphanInputSignature, false);
+    when(orphanInputSignature.isOfType(InputSignature.COMPONENT_TYPE_NAME)).thenReturn(true);
+    when(target.getAttributes()).thenReturn(List.of(targetValue));
+    referenceAttributes(targetValue, sourceValue, unresolvedValue);
+
+    final OdiMappingScope root = OdiMappingScope.root();
+    final OdiColumnLineageResolver.Resolution result =
+        new OdiColumnLineageResolver()
+            .resolve(
+                List.of(new OdiEndpointScope(source, root), new OdiEndpointScope(target, root)));
+
+    assertThat(result.edges()).hasSize(1);
+    assertThat(result.derivations())
+        .containsExactly(
+            new MappingColumnDerivation(
+                "MAP.TGT", "MAP.TGT::VALUE", MappingColumnDerivationType.SOURCE_COLUMNS, false));
+    assertThat(result.warnings())
+        .containsExactly("Column lineage is incomplete for target 'MAP.TGT'.");
   }
 
   @Test
@@ -191,6 +230,148 @@ class OdiColumnLineageResolverTest {
                 List.of(new OdiEndpointScope(source, root), new OdiEndpointScope(target, root)));
 
     assertThat(result.edges()).isEmpty();
+    assertThat(result.derivations())
+        .containsExactly(
+            new MappingColumnDerivation(
+                "MAP.TGT", "MAP.TGT::VALUE", MappingColumnDerivationType.INACTIVE, true));
+    assertThat(result.warnings()).isEmpty();
+  }
+
+  @Test
+  void classifiesOnlyAnExplicitNullExpressionAsANullLiteral() throws Exception {
+    final DatastoreComponent target = datastore("MAP.TGT", false, true);
+    final MapAttribute targetValue = boundAttribute(target, "VALUE", true);
+    final MapExpression nullExpression = mock(MapExpression.class);
+    when(target.getAttributes()).thenReturn(List.of(targetValue));
+    when(targetValue.getExpressions()).thenReturn(List.of(nullExpression));
+    when(nullExpression.getText()).thenReturn("  nUlL  ");
+    when(nullExpression.getCrossReferences()).thenReturn(List.of());
+
+    final OdiColumnLineageResolver.Resolution result =
+        new OdiColumnLineageResolver()
+            .resolve(List.of(new OdiEndpointScope(target, OdiMappingScope.root())));
+
+    assertThat(result.edges()).isEmpty();
+    assertThat(result.derivations())
+        .containsExactly(
+            new MappingColumnDerivation(
+                "MAP.TGT", "MAP.TGT::VALUE", MappingColumnDerivationType.NULL_LITERAL, true));
+  }
+
+  @Test
+  void classifiesAnActiveTargetWithoutAnAssignmentAsUnmapped() throws Exception {
+    final DatastoreComponent target = datastore("MAP.TGT", false, true);
+    final MapAttribute targetValue = boundAttribute(target, "VALUE", true);
+    when(target.getAttributes()).thenReturn(List.of(targetValue));
+
+    final OdiColumnLineageResolver.Resolution result =
+        new OdiColumnLineageResolver()
+            .resolve(List.of(new OdiEndpointScope(target, OdiMappingScope.root())));
+
+    assertThat(result.edges()).isEmpty();
+    assertThat(result.derivations())
+        .containsExactly(
+            new MappingColumnDerivation(
+                "MAP.TGT", "MAP.TGT::VALUE", MappingColumnDerivationType.UNMAPPED, true));
+    assertThat(result.warnings()).isEmpty();
+  }
+
+  @Test
+  void doesNotGuessNullFromAnExpressionWithoutAColumnReference() throws Exception {
+    final DatastoreComponent target = datastore("MAP.TGT", false, true);
+    final MapAttribute targetValue = boundAttribute(target, "VALUE", true);
+    final MapExpression sequenceExpression = mock(MapExpression.class);
+    final MapExpressionXRef sequenceReference = mock(MapExpressionXRef.class);
+    final IExpressionReferencedObject sequence = mock(IExpressionReferencedObject.class);
+    when(target.getAttributes()).thenReturn(List.of(targetValue));
+    when(targetValue.getExpressions()).thenReturn(List.of(sequenceExpression));
+    when(sequenceExpression.getText()).thenReturn("MY_SEQ.NEXTVAL");
+    when(sequenceExpression.getCrossReferences()).thenReturn(List.of(sequenceReference));
+    when(sequenceReference.getReferencedObject()).thenReturn(sequence);
+
+    final OdiColumnLineageResolver.Resolution result =
+        new OdiColumnLineageResolver()
+            .resolve(List.of(new OdiEndpointScope(target, OdiMappingScope.root())));
+
+    assertThat(result.edges()).isEmpty();
+    assertThat(result.derivations())
+        .containsExactly(
+            new MappingColumnDerivation(
+                "MAP.TGT",
+                "MAP.TGT::VALUE",
+                MappingColumnDerivationType.SOURCELESS_EXPRESSION,
+                true));
+    assertThat(result.warnings()).isEmpty();
+  }
+
+  @Test
+  void classifiesBlankExpressionTextAsUnknownWithoutAddingAUiWarning() throws Exception {
+    final DatastoreComponent target = datastore("MAP.TGT", false, true);
+    final MapAttribute targetValue = boundAttribute(target, "VALUE", true);
+    final MapExpression blankExpression = mock(MapExpression.class);
+    when(target.getAttributes()).thenReturn(List.of(targetValue));
+    when(targetValue.getExpressions()).thenReturn(List.of(blankExpression));
+    when(blankExpression.getText()).thenReturn("   ");
+    when(blankExpression.getCrossReferences()).thenReturn(List.of());
+
+    final OdiColumnLineageResolver.Resolution result =
+        new OdiColumnLineageResolver()
+            .resolve(List.of(new OdiEndpointScope(target, OdiMappingScope.root())));
+
+    assertThat(result.derivations())
+        .containsExactly(
+            new MappingColumnDerivation(
+                "MAP.TGT", "MAP.TGT::VALUE", MappingColumnDerivationType.UNKNOWN, false));
+    assertThat(result.warnings()).isEmpty();
+  }
+
+  @Test
+  void classifiesAnUnresolvedCrossReferenceAsUnknownWithoutAddingAUiWarning() throws Exception {
+    final DatastoreComponent target = datastore("MAP.TGT", false, true);
+    final MapAttribute targetValue = boundAttribute(target, "VALUE", true);
+    final MapExpression unresolvedExpression = mock(MapExpression.class);
+    final MapExpressionXRef unresolvedReference = mock(MapExpressionXRef.class);
+    when(target.getAttributes()).thenReturn(List.of(targetValue));
+    when(targetValue.getExpressions()).thenReturn(List.of(unresolvedExpression));
+    when(unresolvedExpression.getText()).thenReturn("MISSING_REFERENCE");
+    when(unresolvedExpression.getCrossReferences()).thenReturn(List.of(unresolvedReference));
+
+    final OdiColumnLineageResolver.Resolution result =
+        new OdiColumnLineageResolver()
+            .resolve(List.of(new OdiEndpointScope(target, OdiMappingScope.root())));
+
+    assertThat(result.derivations())
+        .containsExactly(
+            new MappingColumnDerivation(
+                "MAP.TGT", "MAP.TGT::VALUE", MappingColumnDerivationType.UNKNOWN, false));
+    assertThat(result.warnings()).isEmpty();
+  }
+
+  @Test
+  void keepsResolvedSourcesButSilentlyMarksAnUnknownCrossReferenceIncomplete() throws Exception {
+    final DatastoreComponent source = datastore("MAP.SRC", true, false);
+    final DatastoreComponent target = datastore("MAP.TGT", false, true);
+    final MapAttribute sourceValue = boundAttribute(source, "VALUE", false);
+    final MapAttribute targetValue = boundAttribute(target, "VALUE", true);
+    final MapExpression expression = mock(MapExpression.class);
+    final MapExpressionXRef sourceReference = crossReference(sourceValue);
+    final MapExpressionXRef unresolvedReference = mock(MapExpressionXRef.class);
+    when(target.getAttributes()).thenReturn(List.of(targetValue));
+    when(targetValue.getExpressions()).thenReturn(List.of(expression));
+    when(expression.getText()).thenReturn("SRC.VALUE + MISSING_REFERENCE");
+    when(expression.getCrossReferences()).thenReturn(List.of(sourceReference, unresolvedReference));
+
+    final OdiMappingScope root = OdiMappingScope.root();
+    final OdiColumnLineageResolver.Resolution result =
+        new OdiColumnLineageResolver()
+            .resolve(
+                List.of(new OdiEndpointScope(source, root), new OdiEndpointScope(target, root)));
+
+    assertThat(result.edges()).hasSize(1);
+    assertThat(result.derivations())
+        .containsExactly(
+            new MappingColumnDerivation(
+                "MAP.TGT", "MAP.TGT::VALUE", MappingColumnDerivationType.SOURCE_COLUMNS, false));
     assertThat(result.warnings()).isEmpty();
   }
 
@@ -200,9 +381,11 @@ class OdiColumnLineageResolverTest {
     final MapAttribute targetValue = boundAttribute(target, "VALUE", true);
     final MapExpression expression = mock(MapExpression.class);
     final MapExpressionXRef invalidReference = mock(MapExpressionXRef.class);
+    final IExpressionReferencedObject referencedObject = mock(IExpressionReferencedObject.class);
     when(target.getAttributes()).thenReturn(List.of(targetValue));
     when(targetValue.getExpressions()).thenReturn(List.of(expression));
     when(expression.getCrossReferences()).thenReturn(List.of(invalidReference));
+    when(invalidReference.getReferencedObject()).thenReturn(referencedObject);
 
     final OdiColumnLineageResolver.Resolution result =
         new OdiColumnLineageResolver()
@@ -315,6 +498,10 @@ class OdiColumnLineageResolverTest {
             .resolve(List.of(new OdiEndpointScope(target, OdiMappingScope.root())));
 
     assertThat(result.edges()).isEmpty();
+    assertThat(result.derivations())
+        .containsExactly(
+            new MappingColumnDerivation(
+                "MAP.TGT", "MAP.TGT::VALUE", MappingColumnDerivationType.UNKNOWN, false));
     assertThat(result.warnings())
         .containsExactly("Column lineage is incomplete for target 'MAP.TGT'.");
   }

@@ -11,11 +11,10 @@
  *  limitations under the License.
  */
 
-package org.openmetadata.tools.odi.explorer.model;
+package org.openmetadata.tools.odi.explorer.export;
 
-public record PhysicalLocation(
-    String physicalSchema, String dataServer, String catalog, String schema, String technology) {
-  public PhysicalLocation(String physicalSchema, String dataServer, String catalog, String schema) {
-    this(physicalSchema, dataServer, catalog, schema, null);
+public final class InvalidExportRequestException extends RuntimeException {
+  public InvalidExportRequestException(String message) {
+    super(message);
   }
 }

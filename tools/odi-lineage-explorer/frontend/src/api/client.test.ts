@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError, createHttpApiClient } from './client';
+import { ApiError, createDemoApiClient, createHttpApiClient } from './client';
 import type { SessionCredentials } from './types';
 
 const response = (body: unknown, status = 200) =>
@@ -8,6 +8,13 @@ const response = (body: unknown, status = 200) =>
     status,
     headers: { 'Content-Type': 'application/json' },
   }));
+
+const readBrowserBlob = (blob: Blob) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.addEventListener('load', () => resolve(String(reader.result)));
+  reader.addEventListener('error', () => reject(reader.error));
+  reader.readAsText(blob);
+});
 
 describe('HTTP API adapter', () => {
   afterEach(() => {
@@ -198,6 +205,131 @@ describe('HTTP API adapter', () => {
         headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
       })
     );
+  });
+
+  it('pobiera eksport wybranych wystąpień mappingów jako nazwany plik JSON', async () => {
+    const exportBody = '{"schemaVersion":"1.0"}\n';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(exportBody, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Disposition': 'attachment; filename="odi-lineage-demo.json"',
+      },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const download = await createHttpApiClient().exportLoadPlanLineage(
+      'session-token',
+      'load-plan-1',
+      'MIG_CSIRE_DEV',
+      ['step-first', 'step-second']
+    );
+
+    expect(download.fileName).toBe('odi-lineage-demo.json');
+    expect(download.blob.type).toBe('application/json');
+    expect(await download.blob.text()).toBe(exportBody);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/load-plan-exports',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          loadPlanId: 'load-plan-1',
+          contextCode: 'MIG_CSIRE_DEV',
+          mappingOccurrenceIds: ['step-first', 'step-second'],
+        }),
+        headers: expect.objectContaining({
+          Accept: 'application/json',
+          Authorization: 'Bearer session-token',
+          'Content-Type': 'application/json',
+        }),
+      })
+    );
+  });
+
+  it('tworzy deterministyczny demo eksport v1 z jawnym NULL_LITERAL', async () => {
+    const client = createDemoApiClient();
+    const session = await client.createDemoSession();
+
+    const first = await client.exportLoadPlanLineage(
+      session.token,
+      'lp-daily-sales',
+      'DEV',
+      ['step-orders']
+    );
+    const second = await client.exportLoadPlanLineage(
+      session.token,
+      'lp-daily-sales',
+      'DEV',
+      ['step-orders']
+    );
+    const firstText = await readBrowserBlob(first.blob);
+    const document = JSON.parse(firstText) as {
+      schemaVersion: string;
+      source: { repository: { workRepository: string } };
+      mappingOccurrences: Array<{ occurrenceId: string }>;
+      mappings: Array<{
+        columnDerivations: Array<{
+          kind: string;
+          complete: boolean;
+          fromColumns: unknown[];
+          toColumn: { columnId: string };
+        }>;
+      }>;
+    };
+
+    expect(first.fileName).toBe('odi-lineage_ODI_DEMO_WORK_LP_DAILY_SALES_DEV.json');
+    expect(second.fileName).toBe(first.fileName);
+    expect(await readBrowserBlob(second.blob)).toBe(firstText);
+    expect(document.schemaVersion).toBe('1.0');
+    expect(document.source.repository.workRepository).toBe('ODI_DEMO_WORK');
+    expect(document.mappingOccurrences.map(({ occurrenceId }) => occurrenceId)).toEqual([
+      'step-orders',
+    ]);
+    expect(
+      document.mappings.flatMap(({ columnDerivations }) => columnDerivations)
+    ).toContainEqual(expect.objectContaining({
+      kind: 'NULL_LITERAL',
+      complete: true,
+      fromColumns: [],
+      toColumn: expect.objectContaining({ columnId: 'fact-load-note' }),
+    }));
+    expect(firstText).not.toMatch(/jdbc|password|credential/i);
+  });
+
+  it('odrzuca pustą listę wystąpień w demo eksporcie', async () => {
+    const client = createDemoApiClient();
+    const session = await client.createDemoSession();
+
+    await expect(client.exportLoadPlanLineage(
+      session.token,
+      'lp-daily-sales',
+      'DEV',
+      []
+    )).rejects.toThrow('Wybierz co najmniej jedno wystąpienie mappingu.');
+  });
+
+  it('odrzuca zduplikowane identyfikatory wystąpień w demo eksporcie', async () => {
+    const client = createDemoApiClient();
+    const session = await client.createDemoSession();
+
+    await expect(client.exportLoadPlanLineage(
+      session.token,
+      'lp-daily-sales',
+      'DEV',
+      ['step-orders', 'step-orders']
+    )).rejects.toThrow('Lista wystąpień mappingów zawiera duplikaty.');
+  });
+
+  it('ogranicza demo eksport do 500 wystąpień', async () => {
+    const client = createDemoApiClient();
+    const session = await client.createDemoSession();
+
+    await expect(client.exportLoadPlanLineage(
+      session.token,
+      'lp-daily-sales',
+      'DEV',
+      Array.from({ length: 501 }, (_, index) => `step-${index}`)
+    )).rejects.toThrow('Jednorazowo można wyeksportować maksymalnie 500 wystąpień mappingów.');
   });
 
   it('przekazuje bezpieczny komunikat błędu zwrócony przez backend', async () => {

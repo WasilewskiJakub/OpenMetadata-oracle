@@ -15,6 +15,7 @@ package org.openmetadata.tools.odi.explorer.http;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.sun.net.httpserver.HttpExchange;
@@ -23,22 +24,69 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 final class JsonResponder {
+  private static final int MAX_ATTACHMENT_BYTES = 64 * 1024 * 1024;
   private static final String CONTENT_TYPE = "Content-Type";
   private static final String JSON_CONTENT_TYPE = "application/json; charset=utf-8";
   private static final String CACHE_CONTROL = "Cache-Control";
   private static final String NO_STORE = "no-store";
+  private static final String CONTENT_DISPOSITION = "Content-Disposition";
+  private static final String ATTACHMENT = "attachment; filename=\"%s\"";
+  private static final int LINE_FEED = '\n';
 
+  private final ObjectWriter attachmentWriter;
+  private final int maxAttachmentBytes;
   private final ObjectMapper objectMapper;
 
   JsonResponder() {
+    this(MAX_ATTACHMENT_BYTES);
+  }
+
+  JsonResponder(int maxAttachmentBytes) {
+    this.maxAttachmentBytes = maxAttachmentBytes;
     objectMapper = new ObjectMapper();
     objectMapper.registerModule(new JavaTimeModule());
     objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    final ObjectMapper attachmentMapper = objectMapper.copy();
+    attachmentMapper.setSerializationInclusion(JsonInclude.Include.ALWAYS);
+    attachmentWriter = attachmentMapper.writerWithDefaultPrettyPrinter();
   }
 
   void json(HttpExchange exchange, int status, Object body) throws IOException {
     final byte[] bytes = objectMapper.writeValueAsString(body).getBytes(StandardCharsets.UTF_8);
+    writeJson(exchange, status, bytes);
+  }
+
+  void attachmentJson(HttpExchange exchange, int status, Object body, String fileName)
+      throws IOException {
+    final BoundedByteArrayOutputStream bytes = serializeAttachment(body);
+    exchange.getResponseHeaders().set(CONTENT_DISPOSITION, ATTACHMENT.formatted(fileName));
+    writeAttachment(exchange, status, bytes);
+  }
+
+  private BoundedByteArrayOutputStream serializeAttachment(Object body) throws IOException {
+    final BoundedByteArrayOutputStream result =
+        new BoundedByteArrayOutputStream(maxAttachmentBytes);
+    try {
+      attachmentWriter.writeValue(result, body);
+      result.write(LINE_FEED);
+    } catch (BoundedByteArrayOutputStream.LimitExceededException exception) {
+      throw new BadRequestException(
+          "Export exceeds the %d-byte response limit".formatted(maxAttachmentBytes));
+    }
+    return result;
+  }
+
+  private void writeAttachment(
+      HttpExchange exchange, int status, BoundedByteArrayOutputStream bytes) throws IOException {
+    setResponseHeaders(exchange);
+    exchange.sendResponseHeaders(status, bytes.size());
+    try (OutputStream output = exchange.getResponseBody()) {
+      bytes.writeTo(output);
+    }
+  }
+
+  private void writeJson(HttpExchange exchange, int status, byte[] bytes) throws IOException {
     setResponseHeaders(exchange);
     exchange.sendResponseHeaders(status, bytes.length);
     try (OutputStream output = exchange.getResponseBody()) {

@@ -1,13 +1,15 @@
 # ODI 14c Mapping lineage — Codex hand-off
 
-Last updated: 2026-09-03
+Last updated: 2026-09-23
 
 ## Current state
 
-The OpenMetadata connector has not been implemented. The Oracle Linux VM now has Oracle Database 19c, Oracle JDK 21,
-ODI 14.1.2 Enterprise, ODI Studio, RCU repositories, SQL Developer, and the imported
-`INITIAL_REPO_DEVTS.zip` project patch. The user verified that ODI Studio connects to the repository and
-that the patch import completed successfully.
+The independently deployable ODI Lineage Explorer and deterministic ODI Lineage Export v1 JSON are
+the current implemented products. The experimental OpenMetadata ODI Pipeline connector that consumed
+this JSON was removed from the working tree on 2026-09-23 at the user's request. No ODI service type,
+UI tile, ingestion source, generated OpenMetadata model, or lineage-snapshot extension remains in the
+OpenMetadata modules. The Oracle Linux VM has Oracle Database 19c, Oracle JDK 21, ODI 14.1.2 Enterprise,
+ODI Studio, RCU repositories, SQL Developer, and the imported `INITIAL_REPO_DEVTS.zip` project patch.
 
 An independently buildable ODI Lineage Explorer MVP now lives in `tools/odi-lineage-explorer`. Its
 Java backend wires the real ODI 14.1.2 SDK provider and its React frontend supports separate real and
@@ -36,6 +38,10 @@ non-column reference correctly returns no column edges and no false warning. No 
 are required; the existing SDK/common/third-party client libraries contain the model, parser, XRef,
 and reusable-signature APIs.
 
+The removed connector prototype had passed local table/column-lineage acceptance. Its results remain
+useful design evidence, but they are historical and no importer code is present. A future consumer must
+be designed and introduced separately from the working Explorer/exporter.
+
 The explicit compatibility exception remains: the database is unpatched 19.3 rather than the documented
 RCU minimum 19.14+. RCU nevertheless reported success and created the schemas without bypassing a check.
 
@@ -55,10 +61,10 @@ for an Intel Mac is in docs/odi-lineage-explorer-macos-intel.md.
 - The root DevContainer completed UI build, ingestion install, model generation, and all prerequisite
   checks with Java 21, Maven 3.9.9, Node 22, Yarn 1.22, Python 3.11, and ANTLR 4.9.2.
 - `apply_patch` passed create, update, and delete against the root-owned checkout.
-- Current development state: the VM, DevContainer, OpenMetadata Compose services, explorer frontend,
-  final verified backend, and the two loopback/proxy containers are running. The integrated browser
-  demo reached the HTTP backend with one source, one target, one table edge, two column edges, no
-  transformation nodes, no browser storage, and no console errors.
+- Session-close state: OpenMetadata Compose services, Explorer processes, proxies, and the DevContainer
+  are stopped without deleting their containers, images, or volumes. The user shuts down the VirtualBox
+  VM separately. The final pre-stop checks reported OpenMetadata healthy, ingestion running, Explorer
+  backend `UP`, and both host proxies returning HTTP 200.
 - All temporary credential files and diagnostic probe sources/classes were removed from WSL and the
   DevContainer. The ignored `tools/odi-lineage-explorer/.local/hosts` remains; it contains no secrets.
 
@@ -68,6 +74,8 @@ for an Intel Mac is in docs/odi-lineage-explorer-macos-intel.md.
   but do not claim 12c compatibility until it has its own JAR set and integration tests.
 - First product: a separately deployable, read-only ODI Lineage Explorer kept in this repository so it
   shares the project skills and hand-off context.
+- A future OpenMetadata consumer may import only the versioned JSON boundary; it must remain separate
+  from the Explorer and must never load Oracle SDK JARs or connect to the ODI repository.
 - Browse Load Plans as their real Serial/Parallel/Case/Run Scenario hierarchy.
 - Resolve exact Scenario tags to direct Mappings and Package `StepMapping` occurrences.
 - Keep repeated Mapping occurrences distinct and expose resolved, stale, unresolved, and out-of-scope
@@ -86,21 +94,19 @@ for an Intel Mac is in docs/odi-lineage-explorer-macos-intel.md.
   local 14c lab validation and contains only query APIs; production acceptance still requires a
   database-enforced read-only identity and audit evidence.
 
-Deferred until representative repository data is visible in the explorer:
+Implemented export boundary and deferred consumer requirements:
 
-- JSON, NDJSON, XML, or any other export format;
-- stable external IDs, OpenMetadata FQNs, deduplication keys, and repeated-import update semantics;
-- the OpenMetadata connector and entity writes;
-- final exported column FQNs and optional function/expression serialization;
-- session and task execution status;
-- schedules;
-- Procedure lineage;
-- runtime OpenLineage emission.
+- deterministic ODI Lineage Export schema version `1.0`;
+- exact physical identity, occurrence selection, table edges, column derivations, and source-less
+  derivation facts are retained in the versioned artifact;
+- a future consumer must resolve existing catalog entities exactly, use bounded memory, fail closed,
+  aggregate repeated occurrences, and avoid fake entities for source-less derivations;
+- ownership, reconciliation, and shared physical table-pair behavior must be decided before another
+  OpenMetadata importer is introduced.
 
-The future OpenMetadata contract must be designed only after observing real aliases, Context resolution,
-repeated Mapping occurrences, stale Scenarios, and multi-source/multi-target mappings. Re-importing the
-same logical object must update it rather than create a duplicate, but that identity contract is
-deliberately not being guessed during the explorer MVP.
+Still deferred: the OpenMetadata importer, multi-Load-Plan aggregation for shared physical table pairs,
+schedules and execution status, Procedure lineage, expression/function serialization, and runtime
+OpenLineage emission.
 
 ## Access architecture selected
 
@@ -109,12 +115,13 @@ standalone explorer backend and outside the Python ingestion runtime:
 
     ODI 14c SDK and repository
         -> version-specific Java read-only adapter
-        -> internal REST view DTOs
         -> React ODI Lineage Explorer
+        -> deterministic ODI Lineage Export v1 JSON
+        -> future independent metadata consumer
 
 The internal REST JSON is not an export format and carries no OpenMetadata compatibility promise.
-Repository SQL and Smart Export XML remain fallback approaches. A future export and Python connector
-form a separate design phase.
+Repository SQL and Smart Export XML remain fallback approaches. Any future consumer must accept the
+versioned ODI Lineage Export rather than internal UI DTOs.
 
 Oracle SDK JARs must remain outside Git. They may stay in the ODI development VM or be copied to the
 private WSL cache `/root/.local/share/oracle/odi/14.1.2/lib`; do not redistribute or package them with
@@ -470,11 +477,15 @@ tests. OpenMetadata FQNs remain deferred until the export identity contract is d
 | 2026-09-03 | Mapping-detail regressions fixed | `GOSIA_COUNTRY_SRC_MAP` topology resolution now respects technology catalog/schema support; datastore roles use ODI `isSource()`/`isTarget()`; Load Plan structural nodes are accessible collapsible tree nodes |
 | 2026-09-03 | Column-lineage preview implemented | Endpoint-only API and UI; table paths collapse hidden transformations and exact reusable signatures; bound column references traverse multiple expressions, MapReference wrappers, Dataset composites, and nested/repeated Reusable Mapping signatures with scope-aware IDs; source-left/target-right diagram, column highlighting, arrows, zoom, bounded large-graph rendering, warnings, and paged accessible table added; 114 backend and 44 frontend tests, coverage gates, build, lint, and Playwright pass; export remains deferred |
 | 2026-09-03 | Real column lineage verified | `isValid` was removed as an XRef gate to match ODI bytecode; `GOSIA_COUNTRY_SRC`, `D_PP_AU_SRC_MAP`, `D_PP_UKSE_AU_SRC_MAP`, and five reusable-heavy mappings returned expected table/column edges with zero warnings; non-column BUCKET reference no longer creates a false incomplete alert; all temporary credentials and the unwanted local `INITIAL_REPO_DEVTS.zip` copy were removed |
+| 2026-09-03 | ODI Lineage Export v1 implemented | Deterministic one-Load-Plan JSON, strict schema, bounded 64 MiB serialization, selected Mapping occurrences, physical topology, complete/source-less derivations, and download UI verified against real ODI exports |
+| 2026-09-03 | OpenMetadata ODI Pipeline connector implemented | Schema-first service and UI tile, bounded JSON reader, exact Table/column resolver, table/column aggregation, Test Connection gates, snapshot ownership and conflict preflight; 52 connector tests at 90.60% coverage plus 32 core tests and 13 UI tests pass |
+| 2026-09-03 | Final local acceptance | Full 11-module Maven package succeeded; final server and ingestion images rebuilt; image-level import returned 100% success with two table and six column edges, no fake `NULL`; conflicting Manual edge was preserved by fail-closed preflight |
+| 2026-09-23 | OpenMetadata importer prototype removed | All connector registration, ingestion, UI, schema, generated, test, and shared snapshot changes were removed; ODI Lineage Explorer and JSON v1 exporter were preserved |
 
 Append each completed installation step here with commands or installer choices, observed paths, and
 verification evidence. Never include secrets.
 
 ## Next step
 
-Export the fully powered-off `OracleLinux8` VM to a private OVF 2.0 OVA with a manifest and record its
-SHA-256, following section 1 of `docs/odi-lineage-explorer-macos-intel.md`.
+Create a verified Git checkpoint containing the preserved ODI Lineage Explorer and JSON v1 exporter,
+without any OpenMetadata importer implementation.

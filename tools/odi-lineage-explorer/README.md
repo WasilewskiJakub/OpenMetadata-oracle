@@ -10,6 +10,7 @@ Current MVP capabilities:
 - Load Plan and Context browsing;
 - Scenario-to-Mapping resolution states;
 - per-occurrence Mapping selection;
+- deterministic JSON v1 export for selected Mapping occurrences, including table and column lineage;
 - source-left/target-right table and column lineage with expandable columns, relationship
   highlighting, zoom, and an accessible table alternative;
 - separate component alias, datastore name, resource name, Model, Logical Schema, and resolved
@@ -20,8 +21,9 @@ Aggregate, Distinct, Set, signature, and Reusable Mapping components are used in
 dependencies and never appear as synthetic tables. Repeated and nested Reusable Mapping instances use
 scope-aware transport IDs so their internal endpoints do not merge.
 
-There is deliberately no JSON/XML export and no OpenMetadata ingestion integration yet. The JSON
-used by the internal REST API is a UI transport only and is not an export contract.
+The dedicated `POST /api/load-plan-exports` endpoint returns the stable JSON v1 exchange contract.
+Other JSON used by the internal REST API remains UI transport and carries no compatibility promise.
+The OpenMetadata importer is not implemented yet.
 
 ## Status and safety boundary
 
@@ -39,9 +41,10 @@ code contains no ODI persistence, transaction, generation, execution, or import 
 login against the lab repository is verified with 13 Contexts and 15 Load Plans. Production acceptance
 still requires a dedicated no-DML database identity and audit evidence.
 
-Read [docs/architecture.md](docs/architecture.md) before changing the SDK boundary. It records the
-verified ODI 14.1.2 APIs, forbidden write operations, Load Plan traversal rules, and deferred
-identity/export decisions.
+Read [docs/architecture.md](docs/architecture.md) before changing the SDK boundary. The export
+contract and consumer rules are documented in
+[ODI Lineage Export v1](docs/odi-lineage-export-v1.md), with its machine-readable
+[JSON Schema](docs/odi-lineage-export-v1.schema.json).
 
 ODI 14.1.2 is the primary and currently tested target. The adapter boundary is kept suitable for a
 future ODI 12c implementation, but 12c compatibility is not claimed without separate JARs and tests.
@@ -136,6 +139,7 @@ mvn -f backend/pom.xml spotless:check verify
 
 cd frontend
 yarn install --frozen-lockfile
+yarn lint
 yarn test:run
 yarn test:coverage
 yarn lint:e2e

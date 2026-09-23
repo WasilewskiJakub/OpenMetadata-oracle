@@ -81,6 +81,7 @@ final class OdiMappingMapper {
               components,
               edges,
               columnLineage,
+              columnResolution.derivations(),
               columnResolution.warnings());
     } catch (MappingException | AdapterException exception) {
       throw new OdiConnectionException("Unable to read the ODI mapping graph.", exception);
@@ -191,7 +192,8 @@ final class OdiMappingMapper {
               physicalSchema.getName(),
               dataServerName,
               catalogName(physicalSchema, technology),
-              schemaName(physicalSchema, technology));
+              schemaName(physicalSchema, technology),
+              technology == null ? null : technology.getInternalName());
     }
     return result;
   }

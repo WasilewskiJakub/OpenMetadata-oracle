@@ -5,6 +5,14 @@ export default [
   {
     ignores: ['.tmp/**', 'coverage/**', 'dist/**', 'node_modules/**', 'playwright-report/**', 'test-results/**'],
   },
+  ...tseslint.configs.recommended.map((config) => ({
+    ...config,
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      ...config.rules,
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  })),
   {
     ...playwright.configs['flat/recommended'],
     files: ['e2e/**/*.ts', 'playwright.config.ts'],

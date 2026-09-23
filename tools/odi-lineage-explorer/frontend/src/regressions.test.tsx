@@ -107,6 +107,7 @@ describe('regresje krytycznych stanów UI', () => {
         session={session}
         onBack={vi.fn()}
         onContextChange={vi.fn()}
+        onExport={vi.fn()}
         onLogout={vi.fn()}
         onOpenMapping={vi.fn()}
       />
@@ -201,20 +202,25 @@ describe('regresje krytycznych stanów UI', () => {
         session={session}
         onBack={vi.fn()}
         onContextChange={vi.fn()}
+        onExport={vi.fn()}
         onLogout={vi.fn()}
         onOpenMapping={vi.fn()}
       />
     );
 
-    const occurrences = screen.getAllByRole('checkbox', { name: 'Wybierz MAP_SHARED' });
-    expect(occurrences).toHaveLength(2);
-    expect(occurrences[0]).toBeChecked();
-    expect(occurrences[1]).toBeChecked();
+    const firstOccurrence = screen.getByRole('checkbox', {
+      name: 'Wybierz MAP_SHARED; wystąpienie step-first',
+    });
+    const secondOccurrence = screen.getByRole('checkbox', {
+      name: 'Wybierz MAP_SHARED; wystąpienie step-second',
+    });
+    expect(firstOccurrence).toBeChecked();
+    expect(secondOccurrence).toBeChecked();
 
-    await user.click(occurrences[1]);
+    await user.click(secondOccurrence);
 
-    expect(occurrences[0]).toBeChecked();
-    expect(occurrences[1]).not.toBeChecked();
+    expect(firstOccurrence).toBeChecked();
+    expect(secondOccurrence).not.toBeChecked();
   });
 
   it('pokazuje błąd API również po zalogowaniu', async () => {

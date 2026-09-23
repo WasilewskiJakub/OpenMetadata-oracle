@@ -150,6 +150,11 @@ export interface MappingDetail {
   warnings: string[];
 }
 
+export interface LineageExportDownload {
+  blob: Blob;
+  fileName: string;
+}
+
 export interface ApiClient {
   createSession(credentials: SessionCredentials): Promise<SessionInfo>;
   createDemoSession(): Promise<SessionInfo>;
@@ -157,5 +162,11 @@ export interface ApiClient {
   getLoadPlans(token: string): Promise<LoadPlanSummary[]>;
   getLoadPlan(token: string, id: string, contextCode: ContextCode): Promise<LoadPlanDetail>;
   getMapping(token: string, id: string, contextCode: ContextCode): Promise<MappingDetail>;
+  exportLoadPlanLineage(
+    token: string,
+    loadPlanId: string,
+    contextCode: ContextCode,
+    mappingOccurrenceIds: string[]
+  ): Promise<LineageExportDownload>;
   endSession(token: string): Promise<void>;
 }

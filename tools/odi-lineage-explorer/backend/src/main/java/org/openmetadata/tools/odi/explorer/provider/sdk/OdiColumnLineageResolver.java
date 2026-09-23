@@ -13,6 +13,7 @@
 
 package org.openmetadata.tools.odi.explorer.provider.sdk;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -30,6 +31,8 @@ import oracle.odi.domain.mapping.component.InputSignature;
 import oracle.odi.domain.mapping.exception.MappingException;
 import oracle.odi.domain.mapping.expression.MapExpression;
 import oracle.odi.domain.mapping.xreference.MapExpressionXRef;
+import org.openmetadata.tools.odi.explorer.model.MappingColumnDerivation;
+import org.openmetadata.tools.odi.explorer.model.MappingColumnDerivationType;
 import org.openmetadata.tools.odi.explorer.model.MappingColumnLineage;
 
 final class OdiColumnLineageResolver {
@@ -37,53 +40,128 @@ final class OdiColumnLineageResolver {
   private static final int MAX_RECURSION_DEPTH = 128;
   private static final int MAX_TRAVERSAL_STATES = 100_000;
   private static final int MAX_WARNINGS = 100;
+  private static final String NULL_LITERAL_TEXT = "NULL";
 
   Resolution resolve(List<OdiEndpointScope> endpointScopes) throws MappingException {
-    final Set<String> sourceIds = endpointIds(endpointScopes, false);
-    final Set<MappingColumnLineage> edges = new LinkedHashSet<>();
-    final WarningCollector warnings = new WarningCollector();
+    final ResolutionState state =
+        new ResolutionState(
+            endpointIds(endpointScopes, false),
+            new LinkedHashSet<>(),
+            new ArrayList<>(),
+            new WarningCollector());
     for (final OdiEndpointScope endpointScope : endpointScopes) {
-      resolveTarget(endpointScope, sourceIds, edges, warnings);
+      resolveTarget(endpointScope, state);
     }
-    return new Resolution(sortedEdges(edges), warnings.values());
+    return new Resolution(
+        sortedEdges(state.edges()),
+        sortedDerivations(state.derivations()),
+        state.warnings().values());
   }
 
-  private void resolveTarget(
-      OdiEndpointScope endpointScope,
-      Set<String> sourceIds,
-      Set<MappingColumnLineage> edges,
-      WarningCollector warnings)
+  private void resolveTarget(OdiEndpointScope endpointScope, ResolutionState state)
       throws MappingException {
     if (endpointScope.component().isTarget()) {
       try {
         for (final MapAttribute targetAttribute : endpointScope.component().getAttributes()) {
-          resolveTargetAttribute(endpointScope, targetAttribute, sourceIds, edges, warnings);
+          resolveTargetAttribute(endpointScope, targetAttribute, state);
         }
       } catch (AdapterException exception) {
-        warnings.add(unresolvedTargetWarning(endpointScope.componentId()));
+        state.warnings().add(unresolvedTargetWarning(endpointScope.componentId()));
       }
     }
   }
 
   private void resolveTargetAttribute(
-      OdiEndpointScope endpointScope,
-      MapAttribute targetAttribute,
-      Set<String> sourceIds,
-      Set<MappingColumnLineage> edges,
-      WarningCollector warnings) {
+      OdiEndpointScope endpointScope, MapAttribute targetAttribute, ResolutionState state) {
+    TargetColumn target = null;
     try {
       final IColumn targetColumn = targetAttribute.getBoundColumn();
-      if (targetColumn != null && targetAttribute.isActive()) {
-        final TargetColumn target = new TargetColumn(endpointScope, targetColumn);
-        trace(
-            targetAttribute,
-            endpointScope.scope(),
-            new TraceContext(target, sourceIds, edges, warnings),
-            0);
+      if (targetColumn != null) {
+        target = new TargetColumn(endpointScope, targetColumn);
+        resolveBoundTargetAttribute(targetAttribute, target, state);
       }
     } catch (MappingException | AdapterException exception) {
-      warnings.add(unresolvedTargetWarning(endpointScope.componentId()));
+      state.warnings().add(unresolvedTargetWarning(endpointScope.componentId()));
+      if (target != null) {
+        state.derivations().add(target.derivation(MappingColumnDerivationType.UNKNOWN, false));
+      }
     }
+  }
+
+  private void resolveBoundTargetAttribute(
+      MapAttribute targetAttribute, TargetColumn target, ResolutionState state)
+      throws MappingException, AdapterException {
+    if (targetAttribute.isActive()) {
+      state.derivations().add(resolveActiveTarget(targetAttribute, target, state));
+    } else {
+      state.derivations().add(target.derivation(MappingColumnDerivationType.INACTIVE, true));
+    }
+  }
+
+  private MappingColumnDerivation resolveActiveTarget(
+      MapAttribute targetAttribute, TargetColumn target, ResolutionState state) {
+    final TraceContext context =
+        new TraceContext(target, state.sourceIds(), state.edges(), state.warnings());
+    try {
+      trace(targetAttribute, target.endpoint().scope(), context, 0);
+    } catch (MappingException | AdapterException exception) {
+      context.warnIncomplete();
+    }
+    return targetDerivation(targetAttribute, context);
+  }
+
+  private MappingColumnDerivation targetDerivation(
+      MapAttribute targetAttribute, TraceContext context) {
+    MappingColumnDerivationType type;
+    try {
+      type = derivationType(targetAttribute, context);
+    } catch (MappingException | AdapterException exception) {
+      context.warnIncomplete();
+      type =
+          context.hasSource()
+              ? MappingColumnDerivationType.SOURCE_COLUMNS
+              : MappingColumnDerivationType.UNKNOWN;
+    }
+    return context.target().derivation(type, context.isComplete());
+  }
+
+  private MappingColumnDerivationType derivationType(
+      MapAttribute targetAttribute, TraceContext context)
+      throws MappingException, AdapterException {
+    final List<MapExpression> expressions = targetAttribute.getExpressions();
+    final MappingColumnDerivationType result;
+    if (context.hasSource()) {
+      result = MappingColumnDerivationType.SOURCE_COLUMNS;
+    } else if (!context.isComplete()) {
+      result = MappingColumnDerivationType.UNKNOWN;
+    } else if (expressions.isEmpty()) {
+      result = MappingColumnDerivationType.UNMAPPED;
+    } else if (!hasExpressionText(expressions)) {
+      context.markIncomplete();
+      result = MappingColumnDerivationType.UNKNOWN;
+    } else if (containsOnlyNullLiterals(expressions)) {
+      result = MappingColumnDerivationType.NULL_LITERAL;
+    } else {
+      result = MappingColumnDerivationType.SOURCELESS_EXPRESSION;
+    }
+    return result;
+  }
+
+  private boolean containsOnlyNullLiterals(List<MapExpression> expressions) {
+    boolean containsOnlyNull = true;
+    for (final MapExpression expression : expressions) {
+      final String text = expression.getText();
+      if (text != null && !text.isBlank()) {
+        containsOnlyNull = containsOnlyNull && NULL_LITERAL_TEXT.equalsIgnoreCase(text.trim());
+      }
+    }
+    return containsOnlyNull;
+  }
+
+  private boolean hasExpressionText(List<MapExpression> expressions) {
+    return expressions.stream()
+        .map(MapExpression::getText)
+        .anyMatch(text -> text != null && !text.isBlank());
   }
 
   private void trace(MapAttribute attribute, OdiMappingScope scope, TraceContext context, int depth)
@@ -188,6 +266,8 @@ final class OdiColumnLineageResolver {
     final MapAttribute referencedAttribute = crossReference.getReferencedAttribute();
     if (referencedAttribute != null) {
       traceBridgeAttribute(referencedAttribute, scope, context, depth);
+    } else if (crossReference.getReferencedObject() == null) {
+      context.markIncomplete();
     }
   }
 
@@ -223,13 +303,32 @@ final class OdiColumnLineageResolver {
         .toList();
   }
 
+  private List<MappingColumnDerivation> sortedDerivations(
+      List<MappingColumnDerivation> derivations) {
+    return derivations.stream()
+        .sorted(
+            Comparator.comparing(MappingColumnDerivation::targetComponentId)
+                .thenComparing(MappingColumnDerivation::targetColumnId))
+        .toList();
+  }
+
   private String unresolvedTargetWarning(String targetId) {
     return "Column lineage is incomplete for target '%s'.".formatted(targetId);
   }
 
-  record Resolution(List<MappingColumnLineage> edges, List<String> warnings) {
+  private record ResolutionState(
+      Set<String> sourceIds,
+      Set<MappingColumnLineage> edges,
+      List<MappingColumnDerivation> derivations,
+      WarningCollector warnings) {}
+
+  record Resolution(
+      List<MappingColumnLineage> edges,
+      List<MappingColumnDerivation> derivations,
+      List<String> warnings) {
     Resolution {
       edges = List.copyOf(edges);
+      derivations = List.copyOf(derivations);
       warnings = List.copyOf(warnings);
     }
   }
@@ -242,6 +341,10 @@ final class OdiColumnLineageResolver {
     private String columnId() {
       return endpoint.scope().columnId(endpoint.component(), column);
     }
+
+    private MappingColumnDerivation derivation(MappingColumnDerivationType type, boolean complete) {
+      return new MappingColumnDerivation(componentId(), columnId(), type, complete);
+    }
   }
 
   private static final class TraceContext {
@@ -250,6 +353,8 @@ final class OdiColumnLineageResolver {
     private final TargetColumn target;
     private final Set<VisitKey> visited = new HashSet<>();
     private final WarningCollector warnings;
+    private boolean complete = true;
+    private boolean hasSource;
 
     private TraceContext(
         TargetColumn target,
@@ -278,6 +383,7 @@ final class OdiColumnLineageResolver {
     }
 
     private void addSource(String sourceComponentId, String sourceColumnId) {
+      hasSource = true;
       if (edges.size() < MAX_EDGES) {
         edges.add(
             new MappingColumnLineage(
@@ -291,8 +397,25 @@ final class OdiColumnLineageResolver {
       return sourceIds;
     }
 
+    private TargetColumn target() {
+      return target;
+    }
+
+    private boolean hasSource() {
+      return hasSource;
+    }
+
+    private boolean isComplete() {
+      return complete;
+    }
+
     private void warnIncomplete() {
+      markIncomplete();
       warnings.add("Column lineage is incomplete for target '%s'.".formatted(target.componentId()));
+    }
+
+    private void markIncomplete() {
+      complete = false;
     }
   }
 

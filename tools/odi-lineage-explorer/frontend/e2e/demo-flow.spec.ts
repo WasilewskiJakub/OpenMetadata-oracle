@@ -78,6 +78,54 @@ test.describe(
         await contextSelect.selectOption('PRD');
         await expect(contextSelect).toHaveValue('PRD');
 
+        await page.getByRole('checkbox', {
+          name: 'Wybierz MAP_SALES_FACT; wystąpienie step-sales-fact',
+        }).uncheck();
+        const downloadPromise = page.waitForEvent('download');
+        await page.getByRole('button', { name: 'Eksportuj JSON' }).click();
+        const download = await downloadPromise;
+        expect(download.suggestedFilename()).toBe(
+          'odi-lineage_ODI_DEMO_WORK_LP_DAILY_SALES_PRD.json'
+        );
+        const stream = await download.createReadStream();
+        expect(stream).not.toBeNull();
+        let json = '';
+        for await (const chunk of stream ?? []) {
+          json += chunk.toString();
+        }
+        const exported = JSON.parse(json) as {
+          schemaVersion: string;
+          mappingOccurrences: Array<{ occurrenceId: string; stepType: string }>;
+          mappings: Array<{
+            endpoints: Array<{ endpointId: string }>;
+            columnDerivations: Array<{
+              kind: string;
+              complete: boolean;
+              fromColumns: unknown[];
+            }>;
+          }>;
+        };
+        expect(json.endsWith('\n')).toBe(true);
+        expect(exported.schemaVersion).toBe('1.0');
+        expect(exported.mappingOccurrences).toEqual([
+          expect.objectContaining({ occurrenceId: 'step-orders', stepType: 'RUN_SCENARIO' }),
+        ]);
+        expect(
+          exported.mappings.flatMap(({ columnDerivations }) => columnDerivations)
+        ).toContainEqual(expect.objectContaining({
+          kind: 'NULL_LITERAL',
+          complete: true,
+          fromColumns: [],
+        }));
+        expect(
+          exported.mappings.flatMap(({ endpoints }) => endpoints)
+            .some(({ endpointId }) => endpointId === 'NULL')
+        ).toBe(false);
+        expect(json).not.toMatch(/jdbc|password|credential/i);
+        await expect(page.getByRole('status')).toContainText(
+          'Rozpoczęto pobieranie: odi-lineage_ODI_DEMO_WORK_LP_DAILY_SALES_PRD.json'
+        );
+
         const openMappingButton = page.getByRole('button', {
           name: 'Pokaż lineage MAP_LOAD_ORDERS',
         });

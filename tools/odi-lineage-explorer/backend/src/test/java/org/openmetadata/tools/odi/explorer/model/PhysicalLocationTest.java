@@ -13,9 +13,20 @@
 
 package org.openmetadata.tools.odi.explorer.model;
 
-public record PhysicalLocation(
-    String physicalSchema, String dataServer, String catalog, String schema, String technology) {
-  public PhysicalLocation(String physicalSchema, String dataServer, String catalog, String schema) {
-    this(physicalSchema, dataServer, catalog, schema, null);
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.Test;
+
+class PhysicalLocationTest {
+  @Test
+  void preservesTheFourArgumentConstructorWithoutGuessingTechnology() {
+    final PhysicalLocation location =
+        new PhysicalLocation("PHYSICAL", "SERVER", "CATALOG", "SCHEMA");
+
+    assertThat(location.physicalSchema()).isEqualTo("PHYSICAL");
+    assertThat(location.dataServer()).isEqualTo("SERVER");
+    assertThat(location.catalog()).isEqualTo("CATALOG");
+    assertThat(location.schema()).isEqualTo("SCHEMA");
+    assertThat(location.technology()).isNull();
   }
 }

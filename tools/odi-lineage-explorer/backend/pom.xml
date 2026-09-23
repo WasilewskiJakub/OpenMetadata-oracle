@@ -13,10 +13,12 @@
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <assertj.version>3.27.3</assertj.version>
+    <everit-json-schema.version>1.14.4</everit-json-schema.version>
     <jackson.version>2.18.9</jackson.version>
     <junit.version>5.11.4</junit.version>
     <jacoco.version>0.8.12</jacoco.version>
     <json.version>20240303</json.version>
+    <joda-time.version>2.10.6</joda-time.version>
     <mockito.version>5.15.2</mockito.version>
     <odi.sdk.lib.dir>${user.home}/.local/share/oracle/odi/14.1.2/lib</odi.sdk.lib.dir>
     <spotless.version>2.41.1</spotless.version>
@@ -74,6 +76,18 @@
       <scope>test</scope>
     </dependency>
     <dependency>
+      <groupId>com.github.erosb</groupId>
+      <artifactId>everit-json-schema</artifactId>
+      <version>${everit-json-schema.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>joda-time</groupId>
+      <artifactId>joda-time</artifactId>
+      <version>${joda-time.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <version>${junit.version}</version>
@@ -88,6 +102,17 @@
   </dependencies>
 
   <build>
+    <testResources>
+      <testResource>
+        <directory>src/test/resources</directory>
+      </testResource>
+      <testResource>
+        <directory>${project.basedir}/../docs</directory>
+        <includes>
+          <include>odi-lineage-export-v1.schema.json</include>
+        </includes>
+      </testResource>
+    </testResources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

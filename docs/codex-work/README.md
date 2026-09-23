@@ -15,4 +15,4 @@ Rules:
 
 Current topics:
 
-- odi-14c-context.md — Oracle Data Integrator 14c Mapping-lineage scope and lab setup hand-off.
+- odi-14c-context.md — ODI 14c Explorer, JSON export contract, and lab hand-off.

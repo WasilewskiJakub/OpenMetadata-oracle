@@ -1,0 +1,513 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://open-metadata.org/tools/odi-lineage-explorer/odi-lineage-export-v1.schema.json",
+  "title": "ODI Lineage Export v1",
+  "description": "Stable, credential-free exchange contract for an ODI Load Plan lineage snapshot.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "producer",
+    "source",
+    "loadPlan",
+    "mappingOccurrences",
+    "mappings"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "producer": {
+      "$ref": "#/definitions/producer"
+    },
+    "source": {
+      "$ref": "#/definitions/source"
+    },
+    "loadPlan": {
+      "$ref": "#/definitions/loadPlan"
+    },
+    "mappingOccurrences": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/mappingOccurrence"
+      }
+    },
+    "mappings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/mapping"
+      }
+    }
+  },
+  "definitions": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nullableString": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "version": {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product",
+        "productVersion",
+        "repository"
+      ],
+      "properties": {
+        "product": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "productVersion": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "repository": {
+          "$ref": "#/definitions/repositoryInfo"
+        }
+      }
+    },
+    "repositoryInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "masterRepository",
+        "workRepository"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "masterRepository": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "workRepository": {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      }
+    },
+    "loadPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "contextCode"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "name": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "contextCode": {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      }
+    },
+    "mappingOccurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "occurrenceId",
+        "parentOccurrenceId",
+        "path",
+        "stepType",
+        "enabled",
+        "declaredContextCode",
+        "scenarioName",
+        "scenarioVersion",
+        "mappingId",
+        "mappingName",
+        "resolution",
+        "resolutionReason"
+      ],
+      "properties": {
+        "occurrenceId": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "parentOccurrenceId": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "path": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/nonEmptyString"
+          }
+        },
+        "stepType": {
+          "type": "string",
+          "enum": [
+            "RUN_SCENARIO",
+            "PACKAGE_MAPPING"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "declaredContextCode": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "scenarioName": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "scenarioVersion": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "mappingId": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "mappingName": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "resolution": {
+          "type": "string",
+          "enum": [
+            "RESOLVED",
+            "STALE",
+            "UNRESOLVED",
+            "OUT_OF_SCOPE"
+          ]
+        },
+        "resolutionReason": {
+          "$ref": "#/definitions/nullableString"
+        }
+      }
+    },
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "contextCode",
+        "endpoints",
+        "tableEdges",
+        "columnDerivations",
+        "warnings"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "name": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "contextCode": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "endpoints": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/endpoint"
+          }
+        },
+        "tableEdges": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/tableEdge"
+          }
+        },
+        "columnDerivations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/columnDerivation"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/nonEmptyString"
+          }
+        }
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "endpointId",
+        "role",
+        "alias",
+        "datastoreName",
+        "identity",
+        "columns"
+      ],
+      "properties": {
+        "endpointId": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "SOURCE",
+            "TARGET"
+          ]
+        },
+        "alias": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "datastoreName": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "identity": {
+          "$ref": "#/definitions/datastoreIdentity"
+        },
+        "columns": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/column"
+          }
+        }
+      }
+    },
+    "datastoreIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "technology",
+        "dataServer",
+        "catalog",
+        "schema",
+        "resourceName",
+        "logicalSchema",
+        "modelName",
+        "physicalSchema"
+      ],
+      "properties": {
+        "technology": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "dataServer": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "catalog": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "schema": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "resourceName": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "logicalSchema": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "modelName": {
+          "$ref": "#/definitions/nullableString"
+        },
+        "physicalSchema": {
+          "$ref": "#/definitions/nullableString"
+        }
+      }
+    },
+    "column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "name": {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      }
+    },
+    "tableEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fromEndpointId",
+        "toEndpointId"
+      ],
+      "properties": {
+        "fromEndpointId": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "toEndpointId": {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      }
+    },
+    "columnReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "endpointId",
+        "columnId"
+      ],
+      "properties": {
+        "endpointId": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "columnId": {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      }
+    },
+    "columnDerivation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "toColumn",
+        "fromColumns",
+        "kind",
+        "complete"
+      ],
+      "properties": {
+        "toColumn": {
+          "$ref": "#/definitions/columnReference"
+        },
+        "fromColumns": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/columnReference"
+          }
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "SOURCE_COLUMNS",
+            "NULL_LITERAL",
+            "SOURCELESS_EXPRESSION",
+            "UNMAPPED",
+            "INACTIVE",
+            "UNKNOWN"
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "SOURCE_COLUMNS"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "fromColumns": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "NULL_LITERAL",
+                  "SOURCELESS_EXPRESSION",
+                  "UNMAPPED",
+                  "INACTIVE",
+                  "UNKNOWN"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "fromColumns": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "NULL_LITERAL",
+                  "SOURCELESS_EXPRESSION",
+                  "UNMAPPED",
+                  "INACTIVE"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "complete": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "UNKNOWN"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "complete": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
