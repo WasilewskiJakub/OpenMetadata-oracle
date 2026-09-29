@@ -15,4 +15,4 @@ Rules:
 
 Current topics:
 
-- odi-14c-context.md — ODI 14c Explorer, JSON export contract, and lab hand-off.
+- odi-14c-context.md — ODI 14c Explorer, JSON export, lab paths, and Mac M3/DevContainer continuation.

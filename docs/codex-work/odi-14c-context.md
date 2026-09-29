@@ -1,6 +1,6 @@
 # ODI 14c Mapping lineage — Codex hand-off
 
-Last updated: 2026-09-23
+Last updated: 2026-09-29
 
 ## Current state
 
@@ -42,6 +42,12 @@ The removed connector prototype had passed local table/column-lineage acceptance
 useful design evidence, but they are historical and no importer code is present. A future consumer must
 be designed and introduced separately from the working Explorer/exporter.
 
+The retained Explorer/exporter was revalidated on 2026-09-23 in the WSL DevContainer: backend
+`spotless:check verify` passed 145 tests and the JaCoCo gate; frontend passed 58 tests, 97.75% line
+coverage, ESLint, production build, and one Playwright E2E flow. A running HTTP demo session exported
+schema `1.0` with one selected occurrence and one Mapping. The user also confirmed that the real
+application worked. These results are evidence for WSL/Linux, not yet for the Mac.
+
 The explicit compatibility exception remains: the database is unpatched 19.3 rather than the documented
 RCU minimum 19.14+. RCU nevertheless reported success and created the schemas without bypassing a check.
 
@@ -50,21 +56,63 @@ working decisions from the follow-up discussion. The reusable installation proce
 docs/oracle-odi-lab-installation.md. The source, OVA, NAT, SSH, and private-JAR migration procedure
 for an Intel Mac is in docs/odi-lineage-explorer-macos-intel.md.
 
+## Resume on the Mac M3 Pro
+
+The user is moving ongoing development to an Apple Silicon Mac. They report that Codex and Serena
+are installed there, but Codex reports Java/Node version problems. The exact Mac error output has not
+been inspected in this session; it may be a host prerequisite check rather than a Serena LSP failure.
+
+- User constraint: preserve global macOS Java, Node, Python, and shell configuration. Use an isolated
+  development environment. The proposed arrangement is native macOS Codex calling Serena inside the
+  repository's Development DevContainer; builds and tests should use that same container toolchain.
+- The DevContainer originated in OpenMetadata PR #26623. Local commits `f4e98fbb42`, `0c5fa3f4d9`,
+  and `5ff966eddb` added dependency volumes, selected container user `root` for the WSL-owned checkout,
+  and exposed `/root/.local/bin`. `.devcontainer/dev/devcontainer.json` declares Java 21, Maven 3.9.9,
+  Node 22.17.0, Python 3.11, and Yarn 1.22.22. ARM64 build/start has not been verified. Inspect the
+  Dockerfile and post-create script before running them; do not start Full Stack merely to test Serena.
+- The committed `.codex/config.toml` launches `/root/.local/bin/serena` directly. That path belongs to
+  Linux and cannot launch the Mac installation. A container-based launcher must execute inside the
+  running container with its actual workspace path. Serena has its own isolated Python runtime;
+  installing it must not replace the project's Python environment. Check whether `.serena/project.yml`
+  indexes `tools/odi-lineage-explorer` as well as the OpenMetadata roots when testing symbol tools.
+- Preserve the working Explorer, column-lineage graph, and JSON v1 export. Keep the OpenMetadata
+  importer removed. ODI access must remain read-only, and credentials must stay out of Git, logs, and
+  chat. The user explicitly asks for skills/MCP use and action-first, short instructions (`i-have-adhd`);
+  use `ui-ux-pro-max` for UI work.
+- The existing VM is x86_64, while the Mac is ARM64. The Intel Mac OVA runbook is not an Apple Silicon
+  migration procedure. No working replacement Oracle/ODI ARM lab has been demonstrated. Determine the
+  actual database endpoint before a real connection test; `172.28.48.1` is historical WSL addressing,
+  not a Mac default. Transfer SDK JARs separately using the existing script once SSH access is ready.
+
+Read `CLAUDE.md` and this handoff first. Then consult `tools/odi-lineage-explorer/README.md`, its
+`docs/architecture.md` and `docs/odi-lineage-export-v1.md` for product behavior; use
+`.devcontainer/dev/{devcontainer.json,Dockerfile,post-create.sh}` for the environment and
+`skills/README.md` for the tracked skill inventory. This handoff is the portable project context;
+the new agent must read it explicitly rather than assume the original conversation is available.
+
 ## Development workspace
 
-- Canonical checkout: `/root/workspaces/openmetadata-oracle` on native WSL ext4, owned by `root`.
-- Checkpoint branch: `codex/odi-lineage-explorer`; the immutable rollback tag is
-  `odi-lineage-explorer-v0.1-checkpoint` after the verified commits are created.
+- Source checkout: `/root/workspaces/openmetadata-oracle` on native WSL ext4, owned by `root`.
+  The Mac checkout path is not yet recorded; discover it locally.
+- Private remote: `git@github.com:WasilewskiJakub/OpenMetadata-oracle.git`; working branch:
+  `codex/odi-lineage-explorer`. The old `odi-lineage-explorer-v0.1-checkpoint` tag points to
+  `0165737a74` and predates JSON export. Commit `2a55047dec` contains the working exporter and
+  `41daf5629b` adds the skill inventory/checker; both were pushed to the private branch. Do not use
+  the old tag as the latest development state or push project work to the original OpenMetadata repo.
 - `.agents`, `.claude`, `.codex`, durable `.serena` state, `skills`, and `docs/codex-work` are tracked.
-- Serena 1.7.0 passed symbol overview, lookup, and reference health checks with Python, TypeScript,
-  and Java enabled; its global registry contains only the canonical root checkout.
+- Historical WSL Serena 1.7.0 checks covered symbol overview, lookup, and references with Python,
+  TypeScript, and Java. Mac MCP connection and language-server health require independent checks.
 - The root DevContainer completed UI build, ingestion install, model generation, and all prerequisite
   checks with Java 21, Maven 3.9.9, Node 22, Yarn 1.22, Python 3.11, and ANTLR 4.9.2.
 - `apply_patch` passed create, update, and delete against the root-owned checkout.
-- Session-close state: OpenMetadata Compose services, Explorer processes, proxies, and the DevContainer
-  are stopped without deleting their containers, images, or volumes. The user shuts down the VirtualBox
-  VM separately. The final pre-stop checks reported OpenMetadata healthy, ingestion running, Explorer
-  backend `UP`, and both host proxies returning HTTP 200.
+- On 2026-09-03, services were stopped with containers and volumes preserved. On 2026-09-23, the WSL
+  DevContainer and Explorer were restarted and verified at `http://172.28.48.1:5173`, with backend
+  `8787` reporting `UP`; VM TCP ports `15210` and `1521` were reachable. Recheck runtime state now;
+  neither that address nor the old container IDs describe the Mac environment.
+- Project and reviewed vendor skills remain in Git under `skills/` with relative Codex/Claude
+  entrypoints. `bash skills/openmetadata-session/scripts/skill-health.sh` checks their files and links
+  (59 entries passed); the current agent must separately check skill discovery. Do not reinstall the
+  UI Pro Max bundle over the tracked links. System plugins and Serena installations are machine-local.
 - All temporary credential files and diagnostic probe sources/classes were removed from WSL and the
   DevContainer. The ignored `tools/odi-lineage-explorer/.local/hosts` remains; it contains no secrets.
 
@@ -326,8 +374,8 @@ Do not disable SELinux or the firewall, enable SSH root login, or add `odi-dev` 
 Oracle Database preinstallation RPM; do not recreate or renumber them manually.
 
 ODI Studio runs as `oracle` from the `kuba` desktop through `/home/kuba/bin/odi-studio`. Through SSH,
-the user can inventory or transfer JARs and run controlled SDK probes. NDJSON and every other export
-format remain deferred.
+the user can inventory or transfer JARs and run controlled SDK probes. JSON v1 export is implemented
+in the Explorer; NDJSON and XML exports remain deferred.
 
 ### Verified VM and database state
 
@@ -404,11 +452,13 @@ format remain deferred.
 
 ### Codex execution status
 
-The current Codex CLI runs in WSL. Its managed `citizen` runtime policy rejects direct remote-shell
-commands before OpenSSH starts, even after user approval and an escalation request. Do not try to bypass
-this through PowerShell or VirtualBox guest control.
+During the original WSL setup, the managed Codex runtime rejected direct remote-shell commands before
+OpenSSH started, so VM shell actions were user-operated. This is historical environment evidence,
+not a claim about permissions in a new Mac session. Observe the active session's actual permissions;
+do not bypass a denial through PowerShell or VirtualBox guest control.
 
-The Windows Codex app is version 26.825.6671.0 and starts a Codex 0.151.0 app server inside Ubuntu WSL.
+At the time of that investigation, the Windows Codex app was version 26.825.6671.0 and started a Codex
+0.151.0 app server inside Ubuntu WSL.
 Windows and the WSL app server both see `/root/workspaces/openmetadata-oracle`; the directory is writable
 and is a valid Git repository. Project creation sends `project/import`, but no project record is written,
 and the backend log contains no reason for the generic UI failure. The CLI `/app` command is unavailable
@@ -481,11 +531,14 @@ tests. OpenMetadata FQNs remain deferred until the export identity contract is d
 | 2026-09-03 | OpenMetadata ODI Pipeline connector implemented | Schema-first service and UI tile, bounded JSON reader, exact Table/column resolver, table/column aggregation, Test Connection gates, snapshot ownership and conflict preflight; 52 connector tests at 90.60% coverage plus 32 core tests and 13 UI tests pass |
 | 2026-09-03 | Final local acceptance | Full 11-module Maven package succeeded; final server and ingestion images rebuilt; image-level import returned 100% success with two table and six column edges, no fake `NULL`; conflicting Manual edge was preserved by fail-closed preflight |
 | 2026-09-23 | OpenMetadata importer prototype removed | All connector registration, ingestion, UI, schema, generated, test, and shared snapshot changes were removed; ODI Lineage Explorer and JSON v1 exporter were preserved |
+| 2026-09-23 | Explorer/exporter checkpoint published | `2a55047dec` pushed to the private branch; 145 backend and 58 frontend tests, coverage gates, build, lint, Playwright and HTTP demo export passed; user confirmed the application worked |
+| 2026-09-23 | Skill inventory and read-only check published | `41daf5629b` retains project/vendor skills in Git, documents provenance and separates file integrity from agent discovery; 59 skill entrypoints verified |
+| 2026-09-29 | Apple Silicon continuation prepared | Mac installation/version issues are user-reported; preserve host toolchain, validate Development DevContainer and container-based Serena before claiming readiness |
 
 Append each completed installation step here with commands or installer choices, observed paths, and
 verification evidence. Never include secrets.
 
 ## Next step
 
-Create a verified Git checkpoint containing the preserved ODI Lineage Explorer and JSON v1 exporter,
-without any OpenMetadata importer implementation.
+On the Mac, establish and verify a working Serena MCP connection inside the Development DevContainer,
+using the container toolchain and correct project path while preserving global macOS tool versions.
